@@ -1,0 +1,13 @@
+version: '3'
+
+vars: #alphabetical list
+  DUMMY: dummy
+
+tasks:
+####################################################################################################
+# cluster tasks
+
+  build:
+    description: build the go module
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/varanus
