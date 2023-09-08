@@ -14,7 +14,7 @@ func ReadConfig(filename string) (*VaranusConfig, error) {
 		return nil, fmt.Errorf("file read error for config file %s: %s", filename, err)
 	}
 
-	config, err := parseConfig(yfile)
+	config, err := parseAndValidateConfig(yfile)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse config file %s: %s", filename, err)
 	}
@@ -22,7 +22,7 @@ func ReadConfig(filename string) (*VaranusConfig, error) {
 	return config, nil
 }
 
-func parseConfig(yamlData []byte) (*VaranusConfig, error) {
+func parseAndValidateConfig(yamlData []byte) (*VaranusConfig, error) {
 
 	config := &VaranusConfig{}
 
@@ -31,7 +31,16 @@ func parseConfig(yamlData []byte) (*VaranusConfig, error) {
 		return nil, fmt.Errorf("unmarshal error: %w", err)
 	}
 
-	validationErrors, err := config.Validate()
+	vp := ValidationProcess{}
+	err = vp.Validate(config)
+	if err != nil {
+		return nil, fmt.Errorf("config validation failed to complete: %w", err)
+	}
+
+	err = vp.Finalize()
+	if err != nil {
+		return nil, err
+	}
 
 	return config, nil
 }
@@ -40,14 +49,13 @@ type VaranusConfig struct {
 	Mail MailConfig `yaml:"mail"`
 }
 
-func (c *VaranusConfig) Validate() ([]ValidationError, error) {
-	errors := make([]ValidationError, 0)
+func (c *VaranusConfig) Validate(vp *ValidationProcess) error {
 
-	sub_errors, err := c.Mail.Validate()
+	//validate struct members
+	err := vp.Validate(&c.Mail)
 	if err != nil {
-		return []ValidationError{}, err
+		return err
 	}
-	errors = append(errors, sub_errors...)
 
-	return errors, nil
+	return nil
 }

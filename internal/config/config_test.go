@@ -2,10 +2,12 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEndToEnd(t *testing.T) {
@@ -13,20 +15,20 @@ func TestEndToEnd(t *testing.T) {
 
 	c, err := ReadConfig(filename)
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	assert.Len(t, c.Mail.Accounts, 1)
 	assert.Equal(t, "test1", c.Mail.Accounts[0].Name)
 	assert.NotNil(t, c.Mail.Accounts[0].SMTP)
 	assert.Equal(t, "example@example.com", c.Mail.Accounts[0].SMTP.SenderAddress)
 	assert.Equal(t, "smtp.example.com", c.Mail.Accounts[0].SMTP.ServerAddress)
-	assert.Equal(t, 465, c.Mail.Accounts[0].SMTP.Port)
+	assert.Equal(t, uint(465), c.Mail.Accounts[0].SMTP.Port)
 	assert.Equal(t, "joeuser@example.com", c.Mail.Accounts[0].SMTP.Username)
 	assert.Equal(t, "joepassword", c.Mail.Accounts[0].SMTP.Password)
 
 	assert.NotNil(t, c.Mail.Accounts[0].IMAP)
 	assert.Equal(t, "imap.example.com", c.Mail.Accounts[0].IMAP.ServerAddress)
-	assert.Equal(t, 993, c.Mail.Accounts[0].IMAP.Port)
+	assert.Equal(t, uint(993), c.Mail.Accounts[0].IMAP.Port)
 	assert.Equal(t, "janeuser@example.com", c.Mail.Accounts[0].IMAP.Username)
 	assert.Equal(t, "janepassword", c.Mail.Accounts[0].IMAP.Password)
 
@@ -73,13 +75,13 @@ mail:
     - name: test1
       smtp:
         sender_address: "example@example.com"
-        server_address: "smtp.example.com"
-        port: 1465
+        server_address: "smtp.example.com"	
+        port: 465
         username: joeuser@example.com
         password: joepassword
       imap:
         server_address: "imap.example.com"
-        port: 1993
+        port: 993
         username: janeuser@example.com
         password: janepassword
   send_limits: []
@@ -92,13 +94,13 @@ mail:
 							SMTP: &SMTPConfig{
 								SenderAddress: "example@example.com",
 								ServerAddress: "smtp.example.com",
-								Port:          1465,
+								Port:          uint(465),
 								Username:      "joeuser@example.com",
 								Password:      "joepassword",
 							},
 							IMAP: &IMAPConfig{
 								ServerAddress: "imap.example.com",
-								Port:          1993,
+								Port:          uint(993),
 								Username:      "janeuser@example.com",
 								Password:      "janepassword",
 							},
@@ -132,7 +134,7 @@ mail:
 							SMTP: &SMTPConfig{
 								SenderAddress: "example@example.com",
 								ServerAddress: "smtp.example.com",
-								Port:          465,
+								Port:          uint(465),
 								Username:      "joeuser@example.com",
 								Password:      "joepassword",
 							},
@@ -154,7 +156,7 @@ mail:
     - name: test1
       imap:
         server_address: "imap.example.com"
-        port: 1993
+        port: 993
         username: janeuser@example.com
         password: janepassword
   send_limits: []
@@ -167,7 +169,7 @@ mail:
 							SMTP: nil,
 							IMAP: &IMAPConfig{
 								ServerAddress: "imap.example.com",
-								Port:          1993,
+								Port:          uint(993),
 								Username:      "janeuser@example.com",
 								Password:      "janepassword",
 							},
@@ -182,7 +184,7 @@ mail:
 
 	for _, testCase := range testCases {
 		yamldata := []byte(testCase.Input)
-		config, err := parseConfig(yamldata)
+		config, err := parseAndValidateConfig(yamldata)
 		assert.Nilf(t, err, "Error not nil for test case %#v", testCase)
 		assert.Truef(t,
 			assert.ObjectsAreEqualValues(&testCase.Result, config),
@@ -193,22 +195,97 @@ mail:
 
 }
 
-// // TestHelloName calls greetings.Hello with a name, checking
-// // for a valid return value.
-// func TestHelloName(t *testing.T) {
-//     name := "Gladys"
-//     want := regexp.MustCompile(`\b`+name+`\b`)
-//     msg, err := Hello("Gladys")
-//     if !want.MatchString(msg) || err != nil {
-//         t.Fatalf(`Hello("Gladys") = %q, %v, want match for %#q, nil`, msg, err, want)
-//     }
-// }
+func assertContainsErrorText(t *testing.T, vpe ValidationProcessError, errorText string) {
+	for _, validationError := range vpe.Errors {
+		if strings.Contains(validationError.Error, errorText) {
+			return
+		}
+	}
+	//no match, so the assertion fails
+	t.Errorf("No validation error '%s' in ValidationProcessError with %d errors: %s", errorText, len(vpe.Errors), vpe.ErrorValue)
+}
 
-// // TestHelloEmpty calls greetings.Hello with an empty string,
-// // checking for an error.
-// func TestHelloEmpty(t *testing.T) {
-//     msg, err := Hello("")
-//     if msg != "" || err == nil {
-//         t.Fatalf(`Hello("") = %q, %v, want "", error`, msg, err)
-//     }
-// }
+func TestValidationErrors(t *testing.T) {
+	type TestCase struct {
+		Input            string
+		ValidationErrors []string
+	}
+
+	testCases := []TestCase{
+		//------------------------------------------------------------------------------------------
+		//Neither SMTP nor IMAP in a config
+		{
+			Input: `---
+mail:
+  accounts:
+    - name: test1
+  send_limits: []
+`,
+			ValidationErrors: []string{"Every server config must specify one of the imap or smtp sections"},
+		},
+		//------------------------------------------------------------------------------------------
+		//------------------------------------------------------------------------------------------
+		//SMTP validation
+		{
+			Input: `---
+mail:
+  accounts:
+    - name: "  "
+      smtp:
+        sender_address: "foobar"
+        server_address: "&&ThisisnotaURL&&&"
+        port: 0
+        username: "  "
+        password: "  "
+  send_limits: []
+            `,
+			ValidationErrors: []string{
+				"account names must not be empty or whitespace",
+				"sender_address 'foobar' is not a valid email",
+				"is not a valid hostname",
+				"port number is required",
+				"username must not be empty or whitespace",
+				"password must not be empty or whitespace",
+			},
+		},
+		//------------------------------------------------------------------------------------------
+		//------------------------------------------------------------------------------------------
+		//IMAP validation
+		{
+			Input: `---
+mail:
+  accounts:
+    - name: "  "
+      imap:
+        server_address: "&&ThisisnotaURL&&&"
+        port: 0
+        username: "  "
+        password: "  "
+  send_limits: []
+            `,
+			ValidationErrors: []string{
+				"account names must not be empty or whitespace",
+				"is not a valid hostname",
+				"port number is required",
+				"username must not be empty or whitespace",
+				"password must not be empty or whitespace",
+			},
+		},
+		//------------------------------------------------------------------------------------------
+	}
+
+	for _, testCase := range testCases {
+		yamldata := []byte(testCase.Input)
+		config, err := parseAndValidateConfig(yamldata)
+		assert.Nilf(t, config, "Config not nil for invalid test case %#v", testCase)
+
+		vpe, ok := err.(ValidationProcessError)
+		vpe.Print()
+		require.True(t, ok)
+		assert.Len(t, vpe.Errors, len(testCase.ValidationErrors))
+		for _, validationErrorText := range testCase.ValidationErrors {
+			assertContainsErrorText(t, vpe, validationErrorText)
+		}
+	}
+
+}
