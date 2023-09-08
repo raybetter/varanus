@@ -1,0 +1,15 @@
+mail:
+  accounts:
+    - name: test1
+      smtp:
+        sender_address: "example@example.com"
+        server_address: "smtp.example.com"
+        port: 465
+        username: joeuser@example.com
+        password: joepassword
+      imap:
+        server_address: "imap.example.com"
+        port: 993
+        username: janeuser@example.com
+        password: janepassword
+  send_limits: []

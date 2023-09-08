@@ -49,4 +49,19 @@ Configuration details
         - sending rate
     - dns monitor - check that DNS entry exists
 
-  
+
+Design decisions:
+
+- Configuration management
+  - decided to use regular YAML parsing for config loading
+    - viper, the main config library, doesn't have good support for deeply nested defaults, which
+      defeats a lot of its purpose.  The main advantage would have been to parcel out config loading
+      of each module to itself, but we can get most of this from the validation logic which we have
+      to do anyway
+    - the `gopkg.in/yaml.v3` library provides YAML parsing for the config
+  - decided against using `github.com/creasty/defaults` setting defaults (e.g. port defaults) -- requiring explicit config for everything is probably better anyway.
+
+References:
+
+- crypto
+  - https://www.developer.com/languages/cryptography-in-go/
