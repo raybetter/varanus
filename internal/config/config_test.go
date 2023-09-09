@@ -1,7 +1,8 @@
 package config
 
 import (
-	"fmt"
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -32,7 +33,9 @@ func TestEndToEnd(t *testing.T) {
 	assert.Equal(t, "janeuser@example.com", c.Mail.Accounts[0].IMAP.Username)
 	assert.Equal(t, "janepassword", c.Mail.Accounts[0].IMAP.Password)
 
-	assert.Len(t, c.Mail.SendLimits, 0)
+	assert.Len(t, c.Mail.SendLimits, 1)
+	assert.Equal(t, c.Mail.SendLimits[0].MinPeriodMinutes, 10)
+	assert.Equal(t, c.Mail.SendLimits[0].AccountNames, []string{"test1"})
 
 }
 
@@ -42,7 +45,7 @@ func TestInvalidFilename(t *testing.T) {
 	c, err := ReadConfig(filename)
 
 	assert.Nil(t, c)
-	fmt.Printf("Error: %s", err)
+	// fmt.Printf("Error: %s", err)
 	assert.ErrorContains(t, err, "file read error for config file")
 
 }
@@ -53,7 +56,7 @@ func TestInvalidYaml(t *testing.T) {
 	c, err := ReadConfig(filename)
 
 	assert.Nil(t, c)
-	fmt.Printf("Error: %s", err)
+	// fmt.Printf("Error: %s", err)
 	assert.ErrorContains(t, err, "unmarshal error")
 
 }
@@ -88,7 +91,7 @@ mail:
             `,
 			Result: VaranusConfig{
 				Mail: MailConfig{
-					Accounts: []ServerConfig{
+					Accounts: []MailAccountConfig{
 						{
 							Name: "test1",
 							SMTP: &SMTPConfig{
@@ -106,7 +109,7 @@ mail:
 							},
 						},
 					},
-					SendLimits: nil,
+					SendLimits: []SendLimit{},
 				},
 			},
 		},
@@ -128,7 +131,7 @@ mail:
             `,
 			Result: VaranusConfig{
 				Mail: MailConfig{
-					Accounts: []ServerConfig{
+					Accounts: []MailAccountConfig{
 						{
 							Name: "test1",
 							SMTP: &SMTPConfig{
@@ -141,7 +144,7 @@ mail:
 							IMAP: nil,
 						},
 					},
-					SendLimits: nil,
+					SendLimits: []SendLimit{},
 				},
 			},
 		},
@@ -163,7 +166,7 @@ mail:
             `,
 			Result: VaranusConfig{
 				Mail: MailConfig{
-					Accounts: []ServerConfig{
+					Accounts: []MailAccountConfig{
 						{
 							Name: "test1",
 							SMTP: nil,
@@ -175,7 +178,7 @@ mail:
 							},
 						},
 					},
-					SendLimits: nil,
+					SendLimits: []SendLimit{},
 				},
 			},
 		},
@@ -195,6 +198,76 @@ mail:
 
 }
 
+func TestVaranusConfigValidation(t *testing.T) {
+
+	type TestCase struct {
+		Mutator  func(c *VaranusConfig)
+		Error    string
+		ErrorObj func(c *VaranusConfig) interface{}
+	}
+
+	testCases := []TestCase{
+		//pass one error through to the MailConfig structs to check end to end behavior
+		{
+			Mutator:  func(c *VaranusConfig) { c.Mail.Accounts[0].SMTP.Username = "" },
+			Error:    "username must not be empty or whitespace",
+			ErrorObj: func(c *VaranusConfig) interface{} { return c.Mail.Accounts[0].SMTP },
+		},
+	}
+
+	baseConfig := VaranusConfig{
+		Mail: MailConfig{
+			Accounts: []MailAccountConfig{
+				{
+					Name: "test1",
+					SMTP: &SMTPConfig{
+						SenderAddress: "example@example.com",
+						ServerAddress: "mail.example.com",
+						Port:          465,
+						Username:      "joe@example.com",
+						Password:      "example_password",
+					},
+					IMAP: &IMAPConfig{
+						ServerAddress: "mail.example.com",
+						Port:          993,
+						Username:      "joe@example.com",
+						Password:      "example_password",
+					},
+				},
+			},
+			SendLimits: []SendLimit{
+				{
+					MinPeriodMinutes: 15,
+					AccountNames:     []string{"test1"},
+				},
+			},
+		},
+	}
+
+	//nominal case test should have no errors
+	vp := &ValidationProcess{}
+	config := baseConfig
+	//validation
+	config.Validate(vp)
+	//checks
+	assert.Len(t, vp.Errors, 0, "for nominal case")
+
+	// test loop
+	for index, testCase := range testCases {
+		//setup
+		vp := &ValidationProcess{}
+		config := baseConfig
+		testCase.Mutator(&config)
+		//validation
+		config.Validate(vp)
+		//checks
+		assert.Len(t, vp.Errors, 1, "for test %d", index)
+		assert.Equal(t, testCase.ErrorObj(&config), vp.Errors[0].Object, "for test %d", index)
+		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+	}
+
+}
+
 func assertContainsErrorText(t *testing.T, vpe ValidationProcessError, errorText string) {
 	for _, validationError := range vpe.Errors {
 		if strings.Contains(validationError.Error, errorText) {
@@ -205,6 +278,9 @@ func assertContainsErrorText(t *testing.T, vpe ValidationProcessError, errorText
 	t.Errorf("No validation error '%s' in ValidationProcessError with %d errors: %s", errorText, len(vpe.Errors), vpe.ErrorValue)
 }
 
+// TEstValidationErrors keeps a few yaml validation error cases to test the end to end with
+// validation errors.  Most validation testing coverage is provided by the structs at the config
+// object levels
 func TestValidationErrors(t *testing.T) {
 	type TestCase struct {
 		Input            string
@@ -224,54 +300,6 @@ mail:
 			ValidationErrors: []string{"Every server config must specify one of the imap or smtp sections"},
 		},
 		//------------------------------------------------------------------------------------------
-		//------------------------------------------------------------------------------------------
-		//SMTP validation
-		{
-			Input: `---
-mail:
-  accounts:
-    - name: "  "
-      smtp:
-        sender_address: "foobar"
-        server_address: "&&ThisisnotaURL&&&"
-        port: 0
-        username: "  "
-        password: "  "
-  send_limits: []
-            `,
-			ValidationErrors: []string{
-				"account names must not be empty or whitespace",
-				"sender_address 'foobar' is not a valid email",
-				"is not a valid hostname",
-				"port number is required",
-				"username must not be empty or whitespace",
-				"password must not be empty or whitespace",
-			},
-		},
-		//------------------------------------------------------------------------------------------
-		//------------------------------------------------------------------------------------------
-		//IMAP validation
-		{
-			Input: `---
-mail:
-  accounts:
-    - name: "  "
-      imap:
-        server_address: "&&ThisisnotaURL&&&"
-        port: 0
-        username: "  "
-        password: "  "
-  send_limits: []
-            `,
-			ValidationErrors: []string{
-				"account names must not be empty or whitespace",
-				"is not a valid hostname",
-				"port number is required",
-				"username must not be empty or whitespace",
-				"password must not be empty or whitespace",
-			},
-		},
-		//------------------------------------------------------------------------------------------
 	}
 
 	for _, testCase := range testCases {
@@ -280,12 +308,30 @@ mail:
 		assert.Nilf(t, config, "Config not nil for invalid test case %#v", testCase)
 
 		vpe, ok := err.(ValidationProcessError)
-		vpe.Print()
-		require.True(t, ok)
+		// vpe.Print()
+		require.Truef(t, ok, "The returned error should be a ValidationProcessError, not %#v", err)
 		assert.Len(t, vpe.Errors, len(testCase.ValidationErrors))
 		for _, validationErrorText := range testCase.ValidationErrors {
 			assertContainsErrorText(t, vpe, validationErrorText)
 		}
 	}
 
+}
+
+// deepCopyForTesting is an exceedingly lazy but compact way of deep copying the config structs
+// with all their pointer objects also duplicated
+//
+// https://stackoverflow.com/questions/50269322/how-to-copy-struct-and-dereference-all-pointers
+func deepCopyForTesting(v interface{}) interface{} {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	vptr := reflect.New(reflect.TypeOf(v))
+	err = json.Unmarshal(data, vptr.Interface())
+	if err != nil {
+		panic(err)
+	}
+	return vptr.Elem().Interface()
 }

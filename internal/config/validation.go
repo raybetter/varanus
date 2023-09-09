@@ -19,23 +19,8 @@ type ValidationProcessError struct {
 	ErrorValue string
 }
 
-func (vpe ValidationProcessError) Print() {
-
-	if len(vpe.Errors) > 0 {
-
-		fmt.Println("*****************************************************")
-		fmt.Printf("%d Validation Errors\n", len(vpe.Errors))
-
-		for _, validationError := range vpe.Errors {
-			fmt.Printf("Error %s on object:\n%# v\n", validationError.Error, pretty.Formatter(validationError.Object))
-			fmt.Println("--------------------")
-		}
-
-		fmt.Println("*****************************************************")
-
-	} else {
-		fmt.Printf("No validation errors")
-	}
+func (vp ValidationProcessError) HumanReadable() string {
+	return makeHumanReadableErrorList(vp.Errors)
 }
 
 func (vpe ValidationProcessError) Error() string {
@@ -64,7 +49,7 @@ func (vp *ValidationProcess) Finalize() error {
 
 		var sb strings.Builder
 		for _, validationError := range vp.Errors {
-			sb.Write([]byte(fmt.Sprintf("Error: %s on object %#v", validationError.Error, validationError.Object)))
+			sb.Write([]byte(fmt.Sprintf("Error: %s on object %#v\n", validationError.Error, validationError.Object)))
 		}
 
 		vpe := ValidationProcessError{
@@ -78,23 +63,29 @@ func (vp *ValidationProcess) Finalize() error {
 	return nil
 }
 
-func (vp *ValidationProcess) Print() {
+func (vp *ValidationProcess) HumanReadable() string {
+	return makeHumanReadableErrorList(vp.Errors)
+}
 
-	if len(vp.Errors) > 0 {
+func makeHumanReadableErrorList(errors []ValidationError) string {
+	var sb strings.Builder
 
-		fmt.Println("*****************************************************")
-		fmt.Printf("%d Validation Errors\n", len(vp.Errors))
+	if len(errors) > 0 {
 
-		for _, validationError := range vp.Errors {
-			fmt.Printf("Error %s on object:\n%# v\n", validationError.Error, pretty.Formatter(validationError.Object))
-			fmt.Println("--------------------")
+		sb.WriteString("*****************************************************\n")
+		sb.WriteString(fmt.Sprintf("%d Validation Errors\n", len(errors)))
+
+		for _, validationError := range errors {
+			sb.WriteString(fmt.Sprintf("Error %s on object:\n%# v\n", validationError.Error, pretty.Formatter(validationError.Object)))
+			sb.WriteString("--------------------\n")
 		}
 
-		fmt.Println("*****************************************************")
+		sb.WriteString("*****************************************************\n")
 
 	} else {
-		fmt.Printf("No validation errors")
+		sb.WriteString("No validation errors\n")
 	}
+	return sb.String()
 }
 
 type Validatable interface {
@@ -113,7 +104,7 @@ func IsUrlHost(candidate string) bool {
 
 	u, err := url.ParseRequestURI(candidateWithScheme)
 
-	fmt.Printf("%s --> %#v\n\n", candidate, u)
+	// fmt.Printf("%s --> %#v\n\n", candidate, u)
 
 	//not a valid URL if:
 	// - err is not nil

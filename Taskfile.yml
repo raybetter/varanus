@@ -11,3 +11,17 @@ tasks:
     description: build the go module
     cmds:
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/varanus
+
+  test:
+    description: run tests
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -v ./...
+
+  coverage-test:
+    description: run tests
+    cmds:
+      - mkdir -p coverage
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -cover -coverprofile=coverage/coverage.out -v ./...
+      - go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+
+  

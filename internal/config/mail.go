@@ -39,7 +39,7 @@ func (c *SMTPConfig) Validate(vp *ValidationProcess) error {
 	if c.Port == 0 {
 		vp.addValidationError(
 			c,
-			"port number is required",
+			"port value is required and cannot be 0",
 		)
 	}
 
@@ -82,7 +82,7 @@ func (c *IMAPConfig) Validate(vp *ValidationProcess) error {
 	if c.Port == 0 {
 		vp.addValidationError(
 			c,
-			"port number is required",
+			"port value is required and cannot be 0",
 		)
 	}
 
@@ -105,13 +105,13 @@ func (c *IMAPConfig) Validate(vp *ValidationProcess) error {
 	return nil
 }
 
-type ServerConfig struct {
+type MailAccountConfig struct {
 	Name string
 	SMTP *SMTPConfig
 	IMAP *IMAPConfig
 }
 
-func (c *ServerConfig) Validate(vp *ValidationProcess) error {
+func (c *MailAccountConfig) Validate(vp *ValidationProcess) error {
 
 	//validate fields
 	c.Name = strings.TrimSpace(c.Name)
@@ -127,7 +127,7 @@ func (c *ServerConfig) Validate(vp *ValidationProcess) error {
 	//SMTP and IMAP cannot both be empty
 	if c.SMTP == nil && c.IMAP == nil {
 		vp.addValidationError(c,
-			"Every server config must specify one of the imap or smtp sections.  They cannot both be empty")
+			"Every server config must specify one of the imap or smtp sections.  They cannot both be empty.")
 	}
 
 	//validate sub structs
@@ -149,23 +149,23 @@ func (c *ServerConfig) Validate(vp *ValidationProcess) error {
 }
 
 type SendLimit struct {
-	SendLimit int
-	Accounts  []string
+	MinPeriodMinutes int      `yaml:"min_period_minutes"`
+	AccountNames     []string `yaml:"account_names"`
 }
 
 func (c *SendLimit) Validate(vp *ValidationProcess) error {
 
-	if len(c.Accounts) == 0 {
+	if len(c.AccountNames) == 0 {
 		vp.addValidationError(
 			c,
-			"send limits account lists must not be empty",
+			"send limits account name list must not be empty",
 		)
 	}
 
-	if c.SendLimit <= 0 {
+	if c.MinPeriodMinutes <= 0 {
 		vp.addValidationError(
 			c,
-			"send limit values must be non-negative, not '%d'", c.SendLimit,
+			"send limit min_period_minutes must be non-negative, not '%d'", c.MinPeriodMinutes,
 		)
 	}
 
@@ -173,11 +173,11 @@ func (c *SendLimit) Validate(vp *ValidationProcess) error {
 }
 
 type MailConfig struct {
-	Accounts   []ServerConfig
-	SendLimits []SendLimit
+	Accounts   []MailAccountConfig
+	SendLimits []SendLimit `yaml:"send_limits"`
 }
 
-func (c *MailConfig) GetAccountByName(name string) *ServerConfig {
+func (c *MailConfig) GetAccountByName(name string) *MailAccountConfig {
 	for _, account := range c.Accounts {
 		if account.Name == name {
 			return &account
@@ -207,14 +207,28 @@ func (c *MailConfig) Validate(vp *ValidationProcess) error {
 
 	//make sure all sendlimit accounts are named accounts
 	for _, sendLimit := range c.SendLimits {
-		for _, sendLimitAccountName := range sendLimit.Accounts {
+		for _, sendLimitAccountName := range sendLimit.AccountNames {
 			account := c.GetAccountByName(sendLimitAccountName)
 			if account == nil {
 				vp.addValidationError(
 					sendLimit,
-					"SendLimit references account %s that does not exist", sendLimitAccountName)
+					"send_limits account name '%s' that does not exist", sendLimitAccountName)
 			} // else valid account found
 		}
+	}
+
+	//make sure the account names are unique
+	namesInUse := map[string]bool{}
+	for _, account := range c.Accounts {
+		//validation error if the name is already in use
+		if namesInUse[account.Name] {
+			vp.addValidationError(
+				c,
+				"duplicate account name '%s'", account.Name,
+			)
+		}
+		//add the name in use to the map
+		namesInUse[account.Name] = true
 	}
 
 	return nil

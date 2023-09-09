@@ -12,4 +12,7 @@ mail:
         port: 993
         username: janeuser@example.com
         password: janepassword
-  send_limits: []
+  send_limits:
+    - min_period_minutes: 10
+      account_names:
+        - test1

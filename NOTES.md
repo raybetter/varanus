@@ -49,6 +49,9 @@ Configuration details
         - sending rate
     - dns monitor - check that DNS entry exists
 
+TODOs:
+
+- ...
 
 Design decisions:
 
