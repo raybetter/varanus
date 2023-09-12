@@ -64,6 +64,16 @@ Design decisions:
     - the `gopkg.in/yaml.v3` library provides YAML parsing for the config
   - decided against using `github.com/creasty/defaults` setting defaults (e.g. port defaults) -- requiring explicit config for everything is probably better anyway.
 
+Sealed secrets
+  - memguard
+    - looked at [memguard](https://github.com/awnumar/memguard), which provides sealed enclaves and
+      locked buffers (locked memory pages)
+    - The problem is that once you parse the locked buffer to an object, like rsa.PrivateKey, then
+      the parse object is not protected.
+    - For now, decide to trust the process with the private key loaded from the file
+
+
+
 References:
 
 - crypto
