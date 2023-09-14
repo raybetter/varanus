@@ -11,6 +11,8 @@ import (
 	"hash"
 	"os"
 	"regexp"
+
+	"github.com/youmark/pkcs8"
 )
 
 //--------------------------------------------------------------------------------------------------
@@ -51,28 +53,33 @@ func (su *SecretUnsealer) HasKey() bool {
 	return su.privateKey != nil
 }
 
-func (su *SecretUnsealer) LoadPrivateKeyFromFile(filename string) error {
+func (su *SecretUnsealer) LoadPrivateKeyFromFile(filename string, passphrase string) error {
 	keyBuffer, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading '%s': %w", filename, err)
 	}
-	err = su.LoadPrivateKey(keyBuffer)
+	err = su.LoadPrivateKey(keyBuffer, passphrase)
 	if err != nil {
 		return fmt.Errorf("error reading key from file '%s': %w", filename, err)
 	}
 	return nil
 }
 
-func (su *SecretUnsealer) LoadPrivateKey(rawBytes []byte) error {
+func (su *SecretUnsealer) LoadPrivateKey(rawBytes []byte, passphrase string) error {
 	privateBlock, _ := pem.Decode([]byte(rawBytes))
-	genericPrivateKey, err := x509.ParsePKCS8PrivateKey(privateBlock.Bytes)
+	rsaPrivateKey, err := pkcs8.ParsePKCS8PrivateKeyRSA(privateBlock.Bytes, []byte(passphrase))
 	if err != nil {
 		return fmt.Errorf("error decoding key: %w", err)
 	}
-	rsaPrivateKey, ok := genericPrivateKey.(*rsa.PrivateKey)
-	if !ok {
-		return fmt.Errorf("the key is not an RSA private key")
-	}
+
+	// genericPrivateKey, err := x509.ParsePKCS8PrivateKey(privateBlock.Bytes)
+	// if err != nil {
+	// 	return fmt.Errorf("error decoding key: %w", err)
+	// }
+	// rsaPrivateKey, ok := genericPrivateKey.(*rsa.PrivateKey)
+	// if !ok {
+	// 	return fmt.Errorf("the key is not an RSA private key")
+	// }
 
 	//make sure the key is long enough to be useful
 	if computeMaximumSecretSize(&rsaPrivateKey.PublicKey) < MIN_SECRET_EFFECTIVE_LENGTH {
