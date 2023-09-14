@@ -37,7 +37,7 @@ func parseAndValidateConfig(yamlData []byte) (*VaranusConfig, error) {
 		return nil, fmt.Errorf("config validation failed to complete: %w", err)
 	}
 
-	err = vp.Finalize()
+	err = vp.GetFinalValidationError()
 	if err != nil {
 		return nil, err
 	}

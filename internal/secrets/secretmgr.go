@@ -10,11 +10,15 @@ import (
 	"fmt"
 	"hash"
 	"os"
+	"regexp"
 )
 
 //--------------------------------------------------------------------------------------------------
 // Helper functions shared by SecretSealer and SecretUnsealer
 //--------------------------------------------------------------------------------------------------
+
+// SealedValueRegex matches the expected encoding produced by the sealing function
+var SealedValueRegex = regexp.MustCompile(`^[A-Za-z0-9+/]+=+$`)
 
 const MIN_SECRET_EFFECTIVE_LENGTH int = 50
 

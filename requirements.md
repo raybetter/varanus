@@ -23,7 +23,7 @@ Documentation of the software requirements for the Varanus monitor.
 2. The keys to unseal secrets in varanus shall be provided by a mechanism other than the configuration file.
 3. Secrets shall be unsealed as close to time of use as possible.
 4. Unsealed secrets shall be discarded as soon as possible after use.
-5. The system shall provide a CLI utility for 
+5. The system shall provide a CLI utility for sealing configurations.
 
 ### Email Monitoring
 

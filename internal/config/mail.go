@@ -12,17 +12,17 @@ type SMTPConfig struct {
 	ServerAddress string `yaml:"server_address"`
 	Port          uint
 	Username      string
-	Password      string
+	Password      SealedItem
 }
 
-func (c *SMTPConfig) Validate(vp *ValidationProcess) error {
+func (c SMTPConfig) Validate(vp *ValidationProcess) error {
 
 	//validate fields
 	c.SenderAddress = strings.TrimSpace(c.SenderAddress)
 
 	_, addressError := mail.ParseAddress(c.SenderAddress)
 	if addressError != nil {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"sender_address '%s' is not a valid email: %s", c.SenderAddress, addressError,
 		)
@@ -30,14 +30,14 @@ func (c *SMTPConfig) Validate(vp *ValidationProcess) error {
 
 	c.ServerAddress = strings.TrimSpace(c.ServerAddress)
 	if !IsUrlHost(c.ServerAddress) {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"server_address '%s' is not a valid hostname", c.ServerAddress,
 		)
 	}
 
 	if c.Port == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"port value is required and cannot be 0",
 		)
@@ -45,18 +45,15 @@ func (c *SMTPConfig) Validate(vp *ValidationProcess) error {
 
 	c.Username = strings.TrimSpace(c.Username)
 	if len(c.Username) == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"username must not be empty or whitespace",
 		)
 	}
 
-	c.Password = strings.TrimSpace(c.Password)
-	if len(c.Password) == 0 {
-		vp.addValidationError(
-			c,
-			"password must not be empty or whitespace",
-		)
+	err := vp.Validate(c.Password)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -66,21 +63,21 @@ type IMAPConfig struct {
 	ServerAddress string `yaml:"server_address"`
 	Port          uint
 	Username      string
-	Password      string
+	Password      SealedItem
 }
 
-func (c *IMAPConfig) Validate(vp *ValidationProcess) error {
+func (c IMAPConfig) Validate(vp *ValidationProcess) error {
 
 	c.ServerAddress = strings.TrimSpace(c.ServerAddress)
 	if !IsUrlHost(c.ServerAddress) {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"server_address '%s' is not a valid hostname", c.ServerAddress,
 		)
 	}
 
 	if c.Port == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"port value is required and cannot be 0",
 		)
@@ -88,18 +85,15 @@ func (c *IMAPConfig) Validate(vp *ValidationProcess) error {
 
 	c.Username = strings.TrimSpace(c.Username)
 	if len(c.Username) == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"username must not be empty or whitespace",
 		)
 	}
 
-	c.Password = strings.TrimSpace(c.Password)
-	if len(c.Password) == 0 {
-		vp.addValidationError(
-			c,
-			"password must not be empty or whitespace",
-		)
+	err := vp.Validate(c.Password)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -111,12 +105,12 @@ type MailAccountConfig struct {
 	IMAP *IMAPConfig
 }
 
-func (c *MailAccountConfig) Validate(vp *ValidationProcess) error {
+func (c MailAccountConfig) Validate(vp *ValidationProcess) error {
 
 	//validate fields
 	c.Name = strings.TrimSpace(c.Name)
 	if len(c.Name) == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"account names must not be empty or whitespace",
 		)
@@ -126,7 +120,7 @@ func (c *MailAccountConfig) Validate(vp *ValidationProcess) error {
 
 	//SMTP and IMAP cannot both be empty
 	if c.SMTP == nil && c.IMAP == nil {
-		vp.addValidationError(c,
+		vp.AddValidationError(c,
 			"Every server config must specify one of the imap or smtp sections.  They cannot both be empty.")
 	}
 
@@ -153,17 +147,17 @@ type SendLimit struct {
 	AccountNames     []string `yaml:"account_names"`
 }
 
-func (c *SendLimit) Validate(vp *ValidationProcess) error {
+func (c SendLimit) Validate(vp *ValidationProcess) error {
 
 	if len(c.AccountNames) == 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"send limits account name list must not be empty",
 		)
 	}
 
 	if c.MinPeriodMinutes <= 0 {
-		vp.addValidationError(
+		vp.AddValidationError(
 			c,
 			"send limit min_period_minutes must be non-negative, not '%d'", c.MinPeriodMinutes,
 		)
@@ -177,7 +171,7 @@ type MailConfig struct {
 	SendLimits []SendLimit `yaml:"send_limits"`
 }
 
-func (c *MailConfig) GetAccountByName(name string) *MailAccountConfig {
+func (c MailConfig) GetAccountByName(name string) *MailAccountConfig {
 	for _, account := range c.Accounts {
 		if account.Name == name {
 			return &account
@@ -186,7 +180,7 @@ func (c *MailConfig) GetAccountByName(name string) *MailAccountConfig {
 	return nil
 }
 
-func (c *MailConfig) Validate(vp *ValidationProcess) error {
+func (c MailConfig) Validate(vp *ValidationProcess) error {
 
 	//validate individual struct members
 	for _, account := range c.Accounts {
@@ -210,7 +204,7 @@ func (c *MailConfig) Validate(vp *ValidationProcess) error {
 		for _, sendLimitAccountName := range sendLimit.AccountNames {
 			account := c.GetAccountByName(sendLimitAccountName)
 			if account == nil {
-				vp.addValidationError(
+				vp.AddValidationError(
 					sendLimit,
 					"send_limits account name '%s' that does not exist", sendLimitAccountName)
 			} // else valid account found
@@ -222,7 +216,7 @@ func (c *MailConfig) Validate(vp *ValidationProcess) error {
 	for _, account := range c.Accounts {
 		//validation error if the name is already in use
 		if namesInUse[account.Name] {
-			vp.addValidationError(
+			vp.AddValidationError(
 				c,
 				"duplicate account name '%s'", account.Name,
 			)

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var sealedRegex = regexp.MustCompile(`^[A-Za-z0-9+/]+=+$`)
 var randomRegex = regexp.MustCompile(`^[A-Za-z0-9 ~!@#$%^&*()-=_+[\]{};':",.<>/?\x60|\\]+$`)
 
 const (
@@ -55,7 +54,7 @@ func TestSealAndUnseal(t *testing.T) {
 	sealedSecret, err := sealer.SealSecret(secretMessage)
 	assert.Nil(t, err)
 
-	assert.True(t, sealedRegex.Match([]byte(sealedSecret)))
+	assert.True(t, SealedValueRegex.Match([]byte(sealedSecret)))
 
 	recoveredSecret, err := unsealer.UnsealSecret(sealedSecret)
 	assert.Nil(t, err)
@@ -209,7 +208,7 @@ func TestMaxLengths(t *testing.T) {
 			assert.Nilf(t, err, "for message length %d with %s", bufferLen, context)
 
 			//not too long, so expect success
-			assert.Truef(t, sealedRegex.Match([]byte(sealedMessage)), "for message length %d with %s", bufferLen, context)
+			assert.Truef(t, SealedValueRegex.Match([]byte(sealedMessage)), "for message length %d with %s", bufferLen, context)
 
 			recoveredMessage, err := unsealer.UnsealSecret(sealedMessage)
 			assert.Nilf(t, err, "for message length %d with %s", bufferLen, context)

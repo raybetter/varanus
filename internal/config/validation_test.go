@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,24 +39,24 @@ func TestValidationProcessWithErrors(t *testing.T) {
 	vp := ValidationProcess{}
 
 	obj1 := TestObject{"object 1"}
-	vp.addValidationError(
+	vp.AddValidationError(
 		obj1,
 		"error 1 '%s'", "string arg 1",
 	)
-	assert.Len(t, vp.Errors, 1)
-	assert.Equal(t, obj1, vp.Errors[0].Object)
-	assert.Equal(t, "error 1 'string arg 1'", vp.Errors[0].Error)
+	assert.Len(t, vp.ErrorList, 1)
+	assert.Equal(t, obj1, vp.ErrorList[0].Object)
+	assert.Equal(t, "error 1 'string arg 1'", vp.ErrorList[0].Error)
 
 	obj2 := TestObject{"object 2"}
-	vp.addValidationError(
+	vp.AddValidationError(
 		obj2,
 		"error 2 '%s'", "string arg 2",
 	)
-	assert.Len(t, vp.Errors, 2)
-	assert.Equal(t, obj2, vp.Errors[1].Object)
-	assert.Equal(t, "error 2 'string arg 2'", vp.Errors[1].Error)
+	assert.Len(t, vp.ErrorList, 2)
+	assert.Equal(t, obj2, vp.ErrorList[1].Object)
+	assert.Equal(t, "error 2 'string arg 2'", vp.ErrorList[1].Error)
 
-	finalizeError := vp.Finalize()
+	finalizeError := vp.GetFinalValidationError()
 
 	expectedHumanReadableString := `*****************************************************
 2 Validation Errors
@@ -76,17 +77,21 @@ config.TestObject{value:"object 2"}
 	assert.Contains(t, finalizeError.Error(), errString1)
 	assert.Contains(t, finalizeError.Error(), errString2)
 
-	vpe, ok := finalizeError.(ValidationProcessError)
+	vpe, ok := finalizeError.(ValidationError)
 
 	assert.Truef(t, ok, "Should alwasy be a ValidationProcessError")
 
-	assert.Contains(t, vpe.ErrorValue, errString1)
-	assert.Contains(t, vpe.ErrorValue, errString2)
-
-	assert.Equal(t, vp.Errors, vpe.Errors)
+	assert.Equal(t, vp.ErrorList, vpe.ErrorList)
 
 	assert.Equal(t, expectedHumanReadableString, vpe.HumanReadable())
 
+}
+
+type validatableTestObjectNoErrors struct {
+}
+
+func (vtone validatableTestObjectNoErrors) Validate(vp *ValidationProcess) error {
+	return nil
 }
 
 func TestValidationProcessWithoutErrors(t *testing.T) {
@@ -94,13 +99,59 @@ func TestValidationProcessWithoutErrors(t *testing.T) {
 	vp := ValidationProcess{}
 
 	//no errors added
+	vto := validatableTestObjectNoErrors{}
 
-	assert.Len(t, vp.Errors, 0)
+	assert.Len(t, vp.ErrorList, 0)
 
-	finalizeError := vp.Finalize()
+	vp.Validate(vto)
+
+	assert.Len(t, vp.ErrorList, 0)
+
+	finalizeError := vp.GetFinalValidationError()
 
 	assert.Nil(t, finalizeError)
 
 	assert.Equal(t, "No validation errors\n", vp.HumanReadable())
+
+}
+
+type validatableTestObjectFails struct {
+}
+
+func (vtof validatableTestObjectFails) Validate(vp *ValidationProcess) error {
+	return fmt.Errorf("Test error")
+}
+
+func TestValidatableWithValidationFailures(t *testing.T) {
+
+	vp := ValidationProcess{}
+
+	vto := validatableTestObjectFails{}
+
+	err := vp.Validate(vto)
+
+	assert.NotNil(t, vp.validationFailedError)
+
+	assert.ErrorContains(t, err, "Test error")
+
+	assert.PanicsWithError(t,
+		"illegal call to AddValidationError after validation failure: Test error",
+		func() { vp.AddValidationError(nil, "") },
+	)
+
+	assert.PanicsWithError(t,
+		"illegal call to Validate after validation failure: Test error",
+		func() { vp.Validate(validatableTestObjectNoErrors{}) },
+	)
+
+	assert.PanicsWithError(t,
+		"illegal call to GetFinalValidationError after validation failure: Test error",
+		func() { vp.GetFinalValidationError() },
+	)
+
+	assert.PanicsWithError(t,
+		"illegal call to HumanReadable after validation failure: Test error",
+		func() { vp.HumanReadable() },
+	)
 
 }

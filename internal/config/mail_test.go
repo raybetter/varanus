@@ -9,42 +9,51 @@ import (
 func TestSmtpConfigValidation(t *testing.T) {
 
 	type TestCase struct {
-		Mutator func(c *SMTPConfig)
-		Error   string
+		Mutator         func(c *SMTPConfig)
+		Error           string
+		ErrorObjectType interface{}
 	}
 
 	testCases := []TestCase{
 		{
-			Mutator: func(c *SMTPConfig) { c.SenderAddress = "Not an email address" },
-			Error:   "sender_address 'Not an email address' is not a valid email",
+			Mutator:         func(c *SMTPConfig) { c.SenderAddress = "Not an email address" },
+			Error:           "sender_address 'Not an email address' is not a valid email",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.SenderAddress = "  " },
-			Error:   "sender_address '' is not a valid email",
+			Mutator:         func(c *SMTPConfig) { c.SenderAddress = "  " },
+			Error:           "sender_address '' is not a valid email",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.ServerAddress = "not/a/valid/hostname" },
-			Error:   "server_address 'not/a/valid/hostname' is not a valid hostname",
+			Mutator:         func(c *SMTPConfig) { c.ServerAddress = "not/a/valid/hostname" },
+			Error:           "server_address 'not/a/valid/hostname' is not a valid hostname",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.Port = 0 },
-			Error:   "port value is required and cannot be 0",
+			Mutator:         func(c *SMTPConfig) { c.Port = 0 },
+			Error:           "port value is required and cannot be 0",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.Username = "" },
-			Error:   "username must not be empty or whitespace",
+			Mutator:         func(c *SMTPConfig) { c.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.Username = "  " },
-			Error:   "username must not be empty or whitespace",
+			Mutator:         func(c *SMTPConfig) { c.Username = "  " },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.Password = "" },
-			Error:   "password must not be empty or whitespace",
+			Mutator:         func(c *SMTPConfig) { c.Password = SealedItem{""} },
+			Error:           "value does not match the expected format for an encrypted, encoded string",
+			ErrorObjectType: SealedItem{},
 		},
 		{
-			Mutator: func(c *SMTPConfig) { c.Password = "  " },
-			Error:   "password must not be empty or whitespace",
+			Mutator:         func(c *SMTPConfig) { c.Password = SealedItem{"foo bar is not an encoded password"} },
+			Error:           "value does not match the expected format for an encrypted, encoded string",
+			ErrorObjectType: SealedItem{},
 		},
 	}
 
@@ -53,16 +62,16 @@ func TestSmtpConfigValidation(t *testing.T) {
 		ServerAddress: "mail.example.com",
 		Port:          465,
 		Username:      "joe@example.com",
-		Password:      "example_password",
+		Password:      SealedItem{"+abcdef=="},
 	}
 
 	//nominal case test should have no errors
 	vp := &ValidationProcess{}
 	config := baseConfig
 	//validation
-	config.Validate(vp)
+	vp.Validate(config)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -71,11 +80,11 @@ func TestSmtpConfigValidation(t *testing.T) {
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
-		config.Validate(vp)
+		vp.Validate(config)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, &config, vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -83,34 +92,41 @@ func TestSmtpConfigValidation(t *testing.T) {
 func TestIMAPConfigValidation(t *testing.T) {
 
 	type TestCase struct {
-		Mutator func(c *IMAPConfig)
-		Error   string
+		Mutator         func(c *IMAPConfig)
+		Error           string
+		ErrorObjectType interface{}
 	}
 
 	testCases := []TestCase{
 		{
-			Mutator: func(c *IMAPConfig) { c.ServerAddress = "not/a/valid/hostname" },
-			Error:   "server_address 'not/a/valid/hostname' is not a valid hostname",
+			Mutator:         func(c *IMAPConfig) { c.ServerAddress = "not/a/valid/hostname" },
+			Error:           "server_address 'not/a/valid/hostname' is not a valid hostname",
+			ErrorObjectType: IMAPConfig{},
 		},
 		{
-			Mutator: func(c *IMAPConfig) { c.Port = 0 },
-			Error:   "port value is required and cannot be 0",
+			Mutator:         func(c *IMAPConfig) { c.Port = 0 },
+			Error:           "port value is required and cannot be 0",
+			ErrorObjectType: IMAPConfig{},
 		},
 		{
-			Mutator: func(c *IMAPConfig) { c.Username = "" },
-			Error:   "username must not be empty or whitespace",
+			Mutator:         func(c *IMAPConfig) { c.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: IMAPConfig{},
 		},
 		{
-			Mutator: func(c *IMAPConfig) { c.Username = "  " },
-			Error:   "username must not be empty or whitespace",
+			Mutator:         func(c *IMAPConfig) { c.Username = "  " },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: IMAPConfig{},
 		},
 		{
-			Mutator: func(c *IMAPConfig) { c.Password = "" },
-			Error:   "password must not be empty or whitespace",
+			Mutator:         func(c *IMAPConfig) { c.Password = SealedItem{""} },
+			Error:           "value does not match the expected format for an encrypted, encoded string",
+			ErrorObjectType: SealedItem{},
 		},
 		{
-			Mutator: func(c *IMAPConfig) { c.Password = "  " },
-			Error:   "password must not be empty or whitespace",
+			Mutator:         func(c *IMAPConfig) { c.Password = SealedItem{"foo bar not a valid encoded password"} },
+			Error:           "value does not match the expected format for an encrypted, encoded string",
+			ErrorObjectType: SealedItem{},
 		},
 	}
 
@@ -118,16 +134,16 @@ func TestIMAPConfigValidation(t *testing.T) {
 		ServerAddress: "mail.example.com",
 		Port:          993,
 		Username:      "joe@example.com",
-		Password:      "example_password",
+		Password:      SealedItem{"+abcdef=="},
 	}
 
 	//nominal case test should have no errors
 	vp := &ValidationProcess{}
 	config := baseConfig
 	//validation
-	config.Validate(vp)
+	vp.Validate(config)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -136,11 +152,11 @@ func TestIMAPConfigValidation(t *testing.T) {
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
-		config.Validate(vp)
+		vp.Validate(config)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, &config, vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -148,32 +164,32 @@ func TestIMAPConfigValidation(t *testing.T) {
 func TestMailAccountConfigValidation(t *testing.T) {
 
 	type TestCase struct {
-		Mutator  func(c *MailAccountConfig)
-		Error    string
-		ErrorObj func(c *MailAccountConfig) interface{}
+		Mutator         func(c *MailAccountConfig)
+		Error           string
+		ErrorObjectType interface{}
 	}
 
 	testCases := []TestCase{
 		{
-			Mutator:  func(c *MailAccountConfig) { c.Name = "" },
-			Error:    "account names must not be empty or whitespace",
-			ErrorObj: func(c *MailAccountConfig) interface{} { return c },
+			Mutator:         func(c *MailAccountConfig) { c.Name = "" },
+			Error:           "account names must not be empty or whitespace",
+			ErrorObjectType: MailAccountConfig{},
 		},
 		{
-			Mutator:  func(c *MailAccountConfig) { c.SMTP = nil; c.IMAP = nil },
-			Error:    "Every server config must specify one of the imap or smtp sections.  They cannot both be empty.",
-			ErrorObj: func(c *MailAccountConfig) interface{} { return c },
+			Mutator:         func(c *MailAccountConfig) { c.SMTP = nil; c.IMAP = nil },
+			Error:           "Every server config must specify one of the imap or smtp sections.  They cannot both be empty.",
+			ErrorObjectType: MailAccountConfig{},
 		},
 		//pass one error through to each of the IMAP and SMTP structs to check end to end behavior
 		{
-			Mutator:  func(c *MailAccountConfig) { c.SMTP.Username = "" },
-			Error:    "username must not be empty or whitespace",
-			ErrorObj: func(c *MailAccountConfig) interface{} { return c.SMTP },
+			Mutator:         func(c *MailAccountConfig) { c.SMTP.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator:  func(c *MailAccountConfig) { c.IMAP.Username = "" },
-			Error:    "username must not be empty or whitespace",
-			ErrorObj: func(c *MailAccountConfig) interface{} { return c.IMAP },
+			Mutator:         func(c *MailAccountConfig) { c.IMAP.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: IMAPConfig{},
 		},
 	}
 
@@ -184,13 +200,13 @@ func TestMailAccountConfigValidation(t *testing.T) {
 			ServerAddress: "mail.example.com",
 			Port:          465,
 			Username:      "joe@example.com",
-			Password:      "example_password",
+			Password:      SealedItem{"+abcdef=="},
 		},
 		IMAP: &IMAPConfig{
 			ServerAddress: "mail.example.com",
 			Port:          993,
 			Username:      "joe@example.com",
-			Password:      "example_password",
+			Password:      SealedItem{"+abcdef=="},
 		},
 	}
 
@@ -198,9 +214,9 @@ func TestMailAccountConfigValidation(t *testing.T) {
 	vp := &ValidationProcess{}
 	config := baseConfig
 	//validation
-	config.Validate(vp)
+	vp.Validate(config)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -210,11 +226,11 @@ func TestMailAccountConfigValidation(t *testing.T) {
 
 		testCase.Mutator(&config)
 		//validation
-		config.Validate(vp)
+		vp.Validate(config)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, testCase.ErrorObj(&config), vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -250,9 +266,9 @@ func TestSendLimitValidation(t *testing.T) {
 	vp := &ValidationProcess{}
 	config := baseConfig
 	//validation
-	config.Validate(vp)
+	vp.Validate(config)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -261,11 +277,11 @@ func TestSendLimitValidation(t *testing.T) {
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
-		config.Validate(vp)
+		vp.Validate(config)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, &config, vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, SendLimit{}, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -273,32 +289,32 @@ func TestSendLimitValidation(t *testing.T) {
 func TestMailConfigValidation(t *testing.T) {
 
 	type TestCase struct {
-		Mutator  func(c *MailConfig)
-		Error    string
-		ErrorObj func(c *MailConfig) interface{}
+		Mutator         func(c *MailConfig)
+		Error           string
+		ErrorObjectType interface{}
 	}
 
 	testCases := []TestCase{
 		{
-			Mutator:  func(c *MailConfig) { c.SendLimits[0].AccountNames[0] = "nonexistent" },
-			Error:    "send_limits account name 'nonexistent' that does not exist",
-			ErrorObj: func(c *MailConfig) interface{} { return c.SendLimits[0] },
+			Mutator:         func(c *MailConfig) { c.SendLimits[0].AccountNames[0] = "nonexistent" },
+			Error:           "send_limits account name 'nonexistent' that does not exist",
+			ErrorObjectType: SendLimit{},
 		},
 		{
-			Mutator:  func(c *MailConfig) { c.Accounts[1].Name = "test1" },
-			Error:    "duplicate account name 'test1'",
-			ErrorObj: func(c *MailConfig) interface{} { return c },
+			Mutator:         func(c *MailConfig) { c.Accounts[1].Name = "test1" },
+			Error:           "duplicate account name 'test1'",
+			ErrorObjectType: MailConfig{},
 		},
 		//pass one error through to each of the MailConfig and SendLimit structs to check end to end behavior
 		{
-			Mutator:  func(c *MailConfig) { c.Accounts[0].SMTP.Username = "" },
-			Error:    "username must not be empty or whitespace",
-			ErrorObj: func(c *MailConfig) interface{} { return c.Accounts[0].SMTP },
+			Mutator:         func(c *MailConfig) { c.Accounts[0].SMTP.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator:  func(c *MailConfig) { c.SendLimits[0].MinPeriodMinutes = 0 },
-			Error:    "send limit min_period_minutes must be non-negative, not '0'",
-			ErrorObj: func(c *MailConfig) interface{} { return &c.SendLimits[0] },
+			Mutator:         func(c *MailConfig) { c.SendLimits[0].MinPeriodMinutes = 0 },
+			Error:           "send limit min_period_minutes must be non-negative, not '0'",
+			ErrorObjectType: SendLimit{},
 		},
 	}
 
@@ -311,7 +327,7 @@ func TestMailConfigValidation(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      "example_password",
+					Password:      SealedItem{"+abcdef=="},
 				},
 			},
 			{
@@ -321,7 +337,7 @@ func TestMailConfigValidation(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      "example_password",
+					Password:      SealedItem{"+abcdef=="},
 				},
 			},
 		},
@@ -336,9 +352,9 @@ func TestMailConfigValidation(t *testing.T) {
 	//nominal case test should have no errors
 	vp := &ValidationProcess{}
 	//validation
-	baseConfig.Validate(vp)
+	vp.Validate(baseConfig)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -347,11 +363,11 @@ func TestMailConfigValidation(t *testing.T) {
 		config := deepCopyForTesting(baseConfig).(MailConfig)
 		testCase.Mutator(&config)
 		//validation
-		config.Validate(vp)
+		vp.Validate(config)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, testCase.ErrorObj(&config), vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -367,7 +383,7 @@ func TestMailConfig(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      "example_password",
+					Password:      SealedItem{"+abcdef=="},
 				},
 			},
 			{
@@ -377,7 +393,7 @@ func TestMailConfig(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      "example_password",
+					Password:      SealedItem{"+abcdef=="},
 				},
 			},
 		},

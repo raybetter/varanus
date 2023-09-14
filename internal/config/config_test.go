@@ -25,13 +25,13 @@ func TestEndToEnd(t *testing.T) {
 	assert.Equal(t, "smtp.example.com", c.Mail.Accounts[0].SMTP.ServerAddress)
 	assert.Equal(t, uint(465), c.Mail.Accounts[0].SMTP.Port)
 	assert.Equal(t, "joeuser@example.com", c.Mail.Accounts[0].SMTP.Username)
-	assert.Equal(t, "joepassword", c.Mail.Accounts[0].SMTP.Password)
+	assert.Equal(t, "+aaaaaa==", c.Mail.Accounts[0].SMTP.Password.SealedValue)
 
 	assert.NotNil(t, c.Mail.Accounts[0].IMAP)
 	assert.Equal(t, "imap.example.com", c.Mail.Accounts[0].IMAP.ServerAddress)
 	assert.Equal(t, uint(993), c.Mail.Accounts[0].IMAP.Port)
 	assert.Equal(t, "janeuser@example.com", c.Mail.Accounts[0].IMAP.Username)
-	assert.Equal(t, "janepassword", c.Mail.Accounts[0].IMAP.Password)
+	assert.Equal(t, "+bbbbbb==", c.Mail.Accounts[0].IMAP.Password.SealedValue)
 
 	assert.Len(t, c.Mail.SendLimits, 1)
 	assert.Equal(t, c.Mail.SendLimits[0].MinPeriodMinutes, 10)
@@ -81,12 +81,12 @@ mail:
         server_address: "smtp.example.com"	
         port: 465
         username: joeuser@example.com
-        password: joepassword
+        password: sealed(+aaa/aaa==)
       imap:
         server_address: "imap.example.com"
         port: 993
         username: janeuser@example.com
-        password: janepassword
+        password: sealed(+bbb/bbb==)
   send_limits: []
             `,
 			Result: VaranusConfig{
@@ -99,13 +99,13 @@ mail:
 								ServerAddress: "smtp.example.com",
 								Port:          uint(465),
 								Username:      "joeuser@example.com",
-								Password:      "joepassword",
+								Password:      SealedItem{"+aaa/aaa=="},
 							},
 							IMAP: &IMAPConfig{
 								ServerAddress: "imap.example.com",
 								Port:          uint(993),
 								Username:      "janeuser@example.com",
-								Password:      "janepassword",
+								Password:      SealedItem{"+bbb/bbb=="},
 							},
 						},
 					},
@@ -126,7 +126,7 @@ mail:
         server_address: "smtp.example.com"
         port: 465
         username: joeuser@example.com
-        password: joepassword
+        password: sealed(+abcdef==)
   send_limits: []
             `,
 			Result: VaranusConfig{
@@ -139,7 +139,7 @@ mail:
 								ServerAddress: "smtp.example.com",
 								Port:          uint(465),
 								Username:      "joeuser@example.com",
-								Password:      "joepassword",
+								Password:      SealedItem{"+abcdef=="},
 							},
 							IMAP: nil,
 						},
@@ -161,7 +161,7 @@ mail:
         server_address: "imap.example.com"
         port: 993
         username: janeuser@example.com
-        password: janepassword
+        password: sealed(+abcdef==)
   send_limits: []
             `,
 			Result: VaranusConfig{
@@ -174,7 +174,7 @@ mail:
 								ServerAddress: "imap.example.com",
 								Port:          uint(993),
 								Username:      "janeuser@example.com",
-								Password:      "janepassword",
+								Password:      SealedItem{"+abcdef=="},
 							},
 						},
 					},
@@ -201,17 +201,17 @@ mail:
 func TestVaranusConfigValidation(t *testing.T) {
 
 	type TestCase struct {
-		Mutator  func(c *VaranusConfig)
-		Error    string
-		ErrorObj func(c *VaranusConfig) interface{}
+		Mutator         func(c *VaranusConfig)
+		Error           string
+		ErrorObjectType interface{}
 	}
 
 	testCases := []TestCase{
 		//pass one error through to the MailConfig structs to check end to end behavior
 		{
-			Mutator:  func(c *VaranusConfig) { c.Mail.Accounts[0].SMTP.Username = "" },
-			Error:    "username must not be empty or whitespace",
-			ErrorObj: func(c *VaranusConfig) interface{} { return c.Mail.Accounts[0].SMTP },
+			Mutator:         func(c *VaranusConfig) { c.Mail.Accounts[0].SMTP.Username = "" },
+			Error:           "username must not be empty or whitespace",
+			ErrorObjectType: SMTPConfig{},
 		},
 	}
 
@@ -225,13 +225,13 @@ func TestVaranusConfigValidation(t *testing.T) {
 						ServerAddress: "mail.example.com",
 						Port:          465,
 						Username:      "joe@example.com",
-						Password:      "example_password",
+						Password:      SealedItem{"+abcdef=="},
 					},
 					IMAP: &IMAPConfig{
 						ServerAddress: "mail.example.com",
 						Port:          993,
 						Username:      "joe@example.com",
-						Password:      "example_password",
+						Password:      SealedItem{"+abcdef=="},
 					},
 				},
 			},
@@ -250,7 +250,7 @@ func TestVaranusConfigValidation(t *testing.T) {
 	//validation
 	config.Validate(vp)
 	//checks
-	assert.Len(t, vp.Errors, 0, "for nominal case")
+	assert.Len(t, vp.ErrorList, 0, "for nominal case")
 
 	// test loop
 	for index, testCase := range testCases {
@@ -261,21 +261,23 @@ func TestVaranusConfigValidation(t *testing.T) {
 		//validation
 		config.Validate(vp)
 		//checks
-		assert.Len(t, vp.Errors, 1, "for test %d", index)
-		assert.Equal(t, testCase.ErrorObj(&config), vp.Errors[0].Object, "for test %d", index)
-		assert.Contains(t, vp.Errors[0].Error, testCase.Error, "for test %d", index)
+		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
+		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
+		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
 	}
 
 }
 
-func assertContainsErrorText(t *testing.T, vpe ValidationProcessError, errorText string) {
-	for _, validationError := range vpe.Errors {
+func assertContainsErrorText(t *testing.T, vpe ValidationError, errorText string) {
+	for _, validationError := range vpe.ErrorList {
 		if strings.Contains(validationError.Error, errorText) {
 			return
 		}
 	}
 	//no match, so the assertion fails
-	t.Errorf("No validation error '%s' in ValidationProcessError with %d errors: %s", errorText, len(vpe.Errors), vpe.ErrorValue)
+	t.Errorf(
+		"No validation error containing '%s' in ValidationProcessError with %d errors: %s",
+		errorText, len(vpe.ErrorList), vpe.ErrorList)
 }
 
 // TEstValidationErrors keeps a few yaml validation error cases to test the end to end with
@@ -307,10 +309,10 @@ mail:
 		config, err := parseAndValidateConfig(yamldata)
 		assert.Nilf(t, config, "Config not nil for invalid test case %#v", testCase)
 
-		vpe, ok := err.(ValidationProcessError)
+		vpe, ok := err.(ValidationError)
 		// vpe.Print()
 		require.Truef(t, ok, "The returned error should be a ValidationProcessError, not %#v", err)
-		assert.Len(t, vpe.Errors, len(testCase.ValidationErrors))
+		assert.Len(t, vpe.ErrorList, len(testCase.ValidationErrors))
 		for _, validationErrorText := range testCase.ValidationErrors {
 			assertContainsErrorText(t, vpe, validationErrorText)
 		}

@@ -6,12 +6,12 @@ mail:
         server_address: "smtp.example.com"
         port: 465
         username: joeuser@example.com
-        password: joepassword
+        password: sealed(+aaaaaa==)
       imap:
         server_address: "imap.example.com"
         port: 993
         username: janeuser@example.com
-        password: janepassword
+        password: sealed(+bbbbbb==)
   send_limits:
     - min_period_minutes: 10
       account_names:
