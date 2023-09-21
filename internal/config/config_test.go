@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"varanus/internal/secrets"
+	"varanus/internal/validation"
 
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
@@ -25,18 +27,27 @@ func TestEndToEnd(t *testing.T) {
 	assert.Equal(t, "smtp.example.com", c.Mail.Accounts[0].SMTP.ServerAddress)
 	assert.Equal(t, uint(465), c.Mail.Accounts[0].SMTP.Port)
 	assert.Equal(t, "joeuser@example.com", c.Mail.Accounts[0].SMTP.Username)
-	assert.Equal(t, "+aaaaaa==", c.Mail.Accounts[0].SMTP.Password.SealedValue)
+	assert.Equal(t, "+aaaaaa==", c.Mail.Accounts[0].SMTP.Password.GetValue())
 
 	assert.NotNil(t, c.Mail.Accounts[0].IMAP)
 	assert.Equal(t, "imap.example.com", c.Mail.Accounts[0].IMAP.ServerAddress)
 	assert.Equal(t, uint(993), c.Mail.Accounts[0].IMAP.Port)
 	assert.Equal(t, "janeuser@example.com", c.Mail.Accounts[0].IMAP.Username)
-	assert.Equal(t, "+bbbbbb==", c.Mail.Accounts[0].IMAP.Password.SealedValue)
+	assert.Equal(t, "+bbbbbb==", c.Mail.Accounts[0].IMAP.Password.GetValue())
 
 	assert.Len(t, c.Mail.SendLimits, 1)
 	assert.Equal(t, c.Mail.SendLimits[0].MinPeriodMinutes, 10)
 	assert.Equal(t, c.Mail.SendLimits[0].AccountNames, []string{"test1"})
 
+}
+
+func TestEndToEndWithValidationErrors(t *testing.T) {
+	filename := "tests/example-unvalidatable.yaml"
+
+	_, err := ReadConfig(filename)
+
+	assert.ErrorContains(t, err, "unable to parse config file")
+	assert.ErrorContains(t, err, "account names must not be empty or whitespace")
 }
 
 func TestInvalidFilename(t *testing.T) {
@@ -99,13 +110,13 @@ mail:
 								ServerAddress: "smtp.example.com",
 								Port:          uint(465),
 								Username:      "joeuser@example.com",
-								Password:      SealedItem{"+aaa/aaa=="},
+								Password:      secrets.CreateSealedItem("sealed(+aaa/aaa==)"),
 							},
 							IMAP: &IMAPConfig{
 								ServerAddress: "imap.example.com",
 								Port:          uint(993),
 								Username:      "janeuser@example.com",
-								Password:      SealedItem{"+bbb/bbb=="},
+								Password:      secrets.CreateSealedItem("sealed(+bbb/bbb==)"),
 							},
 						},
 					},
@@ -139,7 +150,7 @@ mail:
 								ServerAddress: "smtp.example.com",
 								Port:          uint(465),
 								Username:      "joeuser@example.com",
-								Password:      SealedItem{"+abcdef=="},
+								Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 							},
 							IMAP: nil,
 						},
@@ -174,7 +185,7 @@ mail:
 								ServerAddress: "imap.example.com",
 								Port:          uint(993),
 								Username:      "janeuser@example.com",
-								Password:      SealedItem{"+abcdef=="},
+								Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 							},
 						},
 					},
@@ -225,13 +236,13 @@ func TestVaranusConfigValidation(t *testing.T) {
 						ServerAddress: "mail.example.com",
 						Port:          465,
 						Username:      "joe@example.com",
-						Password:      SealedItem{"+abcdef=="},
+						Password:      secrets.CreateSealedItem("+abcdef=="),
 					},
 					IMAP: &IMAPConfig{
 						ServerAddress: "mail.example.com",
 						Port:          993,
 						Username:      "joe@example.com",
-						Password:      SealedItem{"+abcdef=="},
+						Password:      secrets.CreateSealedItem("+abcdef=="),
 					},
 				},
 			},
@@ -245,7 +256,7 @@ func TestVaranusConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	config := baseConfig
 	//validation
 	config.Validate(vp)
@@ -255,7 +266,7 @@ func TestVaranusConfigValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
@@ -268,7 +279,7 @@ func TestVaranusConfigValidation(t *testing.T) {
 
 }
 
-func assertContainsErrorText(t *testing.T, vpe ValidationError, errorText string) {
+func assertContainsErrorText(t *testing.T, vpe validation.ValidationError, errorText string) {
 	for _, validationError := range vpe.ErrorList {
 		if strings.Contains(validationError.Error, errorText) {
 			return
@@ -309,9 +320,9 @@ mail:
 		config, err := parseAndValidateConfig(yamldata)
 		assert.Nilf(t, config, "Config not nil for invalid test case %#v", testCase)
 
-		vpe, ok := err.(ValidationError)
+		vpe, ok := err.(validation.ValidationError)
 		// vpe.Print()
-		require.Truef(t, ok, "The returned error should be a ValidationProcessError, not %#v", err)
+		require.Truef(t, ok, "The returned error should be a ValidationError, not %#v", err)
 		assert.Len(t, vpe.ErrorList, len(testCase.ValidationErrors))
 		for _, validationErrorText := range testCase.ValidationErrors {
 			assertContainsErrorText(t, vpe, validationErrorText)

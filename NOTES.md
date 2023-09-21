@@ -50,6 +50,20 @@ Configuration details
     - dns monitor - check that DNS entry exists
 
 TODOs:
+- mve the config/sealed.go objects to secrets/config.go.
+- figure out a strategy for sealable items that lets them be sealed or unsealed
+  - maybe a string overload to check `sealable:"true"` rather than a special object?
+  - put the marshaller and unmarshaller in a specific mode based on the presence of a sealer or unsealer
+  - allow a mixture of sealed and unsealed values at any time
+  - when sealing, pass through already sealed values
+- make an executable that can seal and unseal YAML config files
+- varanus seal -config <yaml file> -key <public key> [-output <filename>]
+  - output is optional, if omitted, replace the original file
+  - if output is specified, won't overwrite an existing file
+- varanus unseal -config <yaml file> -key <private key> -passphrase <passphrase value>] [-output <filename>]
+  - passphrase is optional, support pass:string, file:filename, and env:var like openssl
+  - output is optional, if omitted, replace the original file
+  - if output is specified, won't overwrite an existing file
 
 - ...
 

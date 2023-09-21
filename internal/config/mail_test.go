@@ -2,6 +2,8 @@ package config
 
 import (
 	"testing"
+	"varanus/internal/secrets"
+	"varanus/internal/validation"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -46,14 +48,16 @@ func TestSmtpConfigValidation(t *testing.T) {
 			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator:         func(c *SMTPConfig) { c.Password = SealedItem{""} },
+			Mutator:         func(c *SMTPConfig) { c.Password = secrets.CreateUnsafeSealedItem("  ", true) },
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: SealedItem{},
+			ErrorObjectType: secrets.SealedItem{},
 		},
 		{
-			Mutator:         func(c *SMTPConfig) { c.Password = SealedItem{"foo bar is not an encoded password"} },
+			Mutator: func(c *SMTPConfig) {
+				c.Password = secrets.CreateUnsafeSealedItem("foo bar is not an encoded password", true)
+			},
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: SealedItem{},
+			ErrorObjectType: secrets.SealedItem{},
 		},
 	}
 
@@ -62,11 +66,11 @@ func TestSmtpConfigValidation(t *testing.T) {
 		ServerAddress: "mail.example.com",
 		Port:          465,
 		Username:      "joe@example.com",
-		Password:      SealedItem{"+abcdef=="},
+		Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	config := baseConfig
 	//validation
 	vp.Validate(config)
@@ -76,7 +80,7 @@ func TestSmtpConfigValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
@@ -119,14 +123,16 @@ func TestIMAPConfigValidation(t *testing.T) {
 			ErrorObjectType: IMAPConfig{},
 		},
 		{
-			Mutator:         func(c *IMAPConfig) { c.Password = SealedItem{""} },
-			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: SealedItem{},
+			Mutator:         func(c *IMAPConfig) { c.Password = secrets.CreateUnsafeSealedItem("", false) },
+			Error:           "SealedItem with an unsealed value should not be empty",
+			ErrorObjectType: secrets.SealedItem{},
 		},
 		{
-			Mutator:         func(c *IMAPConfig) { c.Password = SealedItem{"foo bar not a valid encoded password"} },
+			Mutator: func(c *IMAPConfig) {
+				c.Password = secrets.CreateUnsafeSealedItem("sealed(f0o bar not a valid encoded password)", true)
+			},
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: SealedItem{},
+			ErrorObjectType: secrets.SealedItem{},
 		},
 	}
 
@@ -134,11 +140,11 @@ func TestIMAPConfigValidation(t *testing.T) {
 		ServerAddress: "mail.example.com",
 		Port:          993,
 		Username:      "joe@example.com",
-		Password:      SealedItem{"+abcdef=="},
+		Password:      secrets.CreateSealedItem("+abcdef=="),
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	config := baseConfig
 	//validation
 	vp.Validate(config)
@@ -148,7 +154,7 @@ func TestIMAPConfigValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
@@ -200,18 +206,18 @@ func TestMailAccountConfigValidation(t *testing.T) {
 			ServerAddress: "mail.example.com",
 			Port:          465,
 			Username:      "joe@example.com",
-			Password:      SealedItem{"+abcdef=="},
+			Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 		},
 		IMAP: &IMAPConfig{
 			ServerAddress: "mail.example.com",
 			Port:          993,
 			Username:      "joe@example.com",
-			Password:      SealedItem{"+abcdef=="},
+			Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 		},
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	config := baseConfig
 	//validation
 	vp.Validate(config)
@@ -221,7 +227,7 @@ func TestMailAccountConfigValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := deepCopyForTesting(baseConfig).(MailAccountConfig)
 
 		testCase.Mutator(&config)
@@ -263,7 +269,7 @@ func TestSendLimitValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	config := baseConfig
 	//validation
 	vp.Validate(config)
@@ -273,7 +279,7 @@ func TestSendLimitValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := baseConfig
 		testCase.Mutator(&config)
 		//validation
@@ -327,7 +333,7 @@ func TestMailConfigValidation(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      SealedItem{"+abcdef=="},
+					Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 				},
 			},
 			{
@@ -337,7 +343,7 @@ func TestMailConfigValidation(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      SealedItem{"+abcdef=="},
+					Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 				},
 			},
 		},
@@ -350,7 +356,7 @@ func TestMailConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &ValidationProcess{}
+	vp := &validation.ValidationProcess{}
 	//validation
 	vp.Validate(baseConfig)
 	//checks
@@ -359,7 +365,7 @@ func TestMailConfigValidation(t *testing.T) {
 	// test loop
 	for index, testCase := range testCases {
 		//setup
-		vp := &ValidationProcess{}
+		vp := &validation.ValidationProcess{}
 		config := deepCopyForTesting(baseConfig).(MailConfig)
 		testCase.Mutator(&config)
 		//validation
@@ -383,7 +389,7 @@ func TestMailConfig(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      SealedItem{"+abcdef=="},
+					Password:      secrets.CreateSealedItem("+abcdef=="),
 				},
 			},
 			{
@@ -393,7 +399,7 @@ func TestMailConfig(t *testing.T) {
 					ServerAddress: "mail.example.com",
 					Port:          465,
 					Username:      "joe@example.com",
-					Password:      SealedItem{"+abcdef=="},
+					Password:      secrets.CreateSealedItem("+abcdef=="),
 				},
 			},
 		},

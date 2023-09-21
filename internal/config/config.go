@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"varanus/internal/validation"
 
 	"gopkg.in/yaml.v3"
 )
@@ -31,9 +32,10 @@ func parseAndValidateConfig(yamlData []byte) (*VaranusConfig, error) {
 		return nil, fmt.Errorf("unmarshal error: %w", err)
 	}
 
-	vp := ValidationProcess{}
+	vp := validation.ValidationProcess{}
 	err = vp.Validate(config)
 	if err != nil {
+		//can't cover with test because none of the config validation has an induceable error
 		return nil, fmt.Errorf("config validation failed to complete: %w", err)
 	}
 
@@ -49,11 +51,12 @@ type VaranusConfig struct {
 	Mail MailConfig `yaml:"mail"`
 }
 
-func (c *VaranusConfig) Validate(vp *ValidationProcess) error {
+func (c *VaranusConfig) Validate(vp *validation.ValidationProcess) error {
 
 	//validate struct members
 	err := vp.Validate(&c.Mail)
 	if err != nil {
+		//can't cover with test because none of the config validation has an induceable error
 		return err
 	}
 

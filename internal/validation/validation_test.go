@@ -1,4 +1,4 @@
-package config
+package validation
 
 import (
 	"fmt"
@@ -61,18 +61,18 @@ func TestValidationProcessWithErrors(t *testing.T) {
 	expectedHumanReadableString := `*****************************************************
 2 Validation Errors
 Error error 1 'string arg 1' on object:
-config.TestObject{value:"object 1"}
+validation.TestObject{value:"object 1"}
 --------------------
 Error error 2 'string arg 2' on object:
-config.TestObject{value:"object 2"}
+validation.TestObject{value:"object 2"}
 --------------------
 *****************************************************
 `
 
 	assert.Equal(t, expectedHumanReadableString, vp.HumanReadable())
 
-	errString1 := "error 1 'string arg 1' on object config.TestObject{value:\"object 1\"}"
-	errString2 := "error 2 'string arg 2' on object config.TestObject{value:\"object 2\"}"
+	errString1 := "error 1 'string arg 1' on object validation.TestObject{value:\"object 1\"}"
+	errString2 := "error 2 'string arg 2' on object validation.TestObject{value:\"object 2\"}"
 
 	assert.Contains(t, finalizeError.Error(), errString1)
 	assert.Contains(t, finalizeError.Error(), errString2)
