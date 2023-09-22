@@ -331,6 +331,137 @@ mail:
 
 }
 
+var testPublicKey string = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAybHNVmB0+9tNyZyKiMCJ
+Qz0gUW/QtNdQd/XX26w6SCQtJVoM+o6r5vbz9YQoKHYe8vfeUdEmE79UorMMmndB
+S8v8lMwWuCEy9MfcMRsSWnz8u9yRyhVfjaqEnMJHu2Pw05GLhQVf7fD+45eSTUZa
+EenaOZUXQX9RVA2MEA4TuaIIAM7uMEbU2ta0zM8A9WathRkqxqNN/2l24Y3AjWek
+xA1thE7wHvGtvhAO3v1S1GFbH/bbBoLSm3Ry+dZV8Hw+CK+h/soXzEjg7uIR67gW
+SRZ3CPOGK2/0pQTLDMxQ9zCAzgAArMFAtjEe0Os51NgK5r170s00EY4mNTSE7285
+5dLg+vJ3dcT5R1rbvElE3HI0JpmACNCGTxumML5f2GMiRgPyLsAbrOxDIhYessrj
+QkZixmITW5dDvltbB/Rc8yojR3qvSe5SRD0kH/R2wikJnFA/rlQHWKR37e0/uMOu
+cQGgeQB5EVF9Kskljo9VyPk7laqCJMMoZc1Ka21QhSLRDbNuXrNcfaDGDMJ5uk+w
+3rDktpcFb/4cv5Jc+noMym+MiEZemvQz9cJjlBGdov/tPvjzaJERtbjrzSXQpO5f
+C6CO4UwI/B/OEswbmNxW50Lh1rGQUrrVVSxpT2Co18xaAJO144cqkMO+UcDxWcgr
+PFX6vkNXMsPZ4hxALqlxYZUCAwEAAQ==
+-----END PUBLIC KEY-----`
+
+var testPrivateKey string = `-----BEGIN PRIVATE KEY-----
+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
+2XPCDnhB9l68DFEkEcw2vpSZ3y5rPavYtg==
+-----END PRIVATE KEY-----
+`
+
+func TestSealing(t *testing.T) {
+	yamlData := `---
+mail:
+  accounts:
+  - name: test1
+    smtp:
+      sender_address: "example@example.com"
+      server_address: "smtp.example.com"	
+      port: 465
+      username: joeuser@example.com
+      password: "it's a secret"
+    imap:
+      server_address: "imap.example.com"
+      port: 993
+      username: janeuser@example.com
+      password: "it's a secret too"
+  send_limits: []`
+
+	yamldata := []byte(yamlData)
+	config, err := parseAndValidateConfig(yamldata)
+	assert.Nil(t, err)
+
+	//check unsealed states
+	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+	assert.False(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+
+	//make a secret sealer
+	sealer := secrets.SecretSealer{}
+	err = sealer.LoadPublicKey([]byte(testPublicKey))
+	assert.Nil(t, err)
+
+	//seal the config
+	err = config.Seal(&sealer)
+	assert.Nil(t, err)
+
+	//check sealed states
+	assert.True(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+	assert.True(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+
+	//validate the config again
+	vp := validation.ValidationProcess{}
+	err = config.Validate(&vp)
+	assert.Nil(t, err)
+
+	err = vp.GetFinalValidationError()
+	assert.Nil(t, err)
+
+	//unseal the sealed values and verify them
+	unsealer := secrets.SecretUnsealer{}
+	err = unsealer.LoadPrivateKey([]byte(testPrivateKey), "")
+	assert.Nil(t, err)
+
+	smtpPass, err := unsealer.UnsealSecret(config.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.Nil(t, err)
+	assert.Equal(t, "it's a secret", smtpPass)
+
+	imapPass, err := unsealer.UnsealSecret(config.Mail.Accounts[0].IMAP.Password.GetValue())
+	assert.Nil(t, err)
+	assert.Equal(t, "it's a secret too", imapPass)
+
+}
+
 // deepCopyForTesting is an exceedingly lazy but compact way of deep copying the config structs
 // with all their pointer objects also duplicated
 //

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"varanus/internal/secrets"
 	"varanus/internal/validation"
 
 	"gopkg.in/yaml.v3"
@@ -61,4 +62,8 @@ func (c *VaranusConfig) Validate(vp *validation.ValidationProcess) error {
 	}
 
 	return nil
+}
+
+func (c *VaranusConfig) Seal(sealer *secrets.SecretSealer) error {
+	return c.Mail.Seal(sealer)
 }

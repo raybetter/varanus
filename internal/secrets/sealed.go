@@ -9,6 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Sealable interface {
+	Seal(sealer *SecretSealer) error
+}
+
 // note that inner group corresponds to internal/secrets/secretmgr.SealedValueRegex
 var sealedWrapperRegex = regexp.MustCompile(`^sealed\((.*)\)$`)
 
@@ -65,9 +69,11 @@ func (si SealedItem) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
+// SealValue seals the secret in the sealed value using the supplied SecretSealer.  Calls to SealValue are
+// idempotent -- if the item is already sealed, then nothing happens.
 func (si *SealedItem) SealValue(sealer *SecretSealer) error {
 	if si.isSealed {
-		return fmt.Errorf("value is already sealed")
+		return nil
 	}
 	sealedValue, err := sealer.SealSecret(si.value)
 	if err != nil {

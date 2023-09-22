@@ -250,8 +250,10 @@ func TestSealedItemSealWithKeyErrors(t *testing.T) {
 
 	assert.Equal(t, true, si.IsValueSealed())
 
-	//a second sealing should fail
+	//a second sealing should succeed but not change state
 	err = si.SealValue(&sealer)
-	assert.ErrorContains(t, err, "value is already sealed")
+	assert.Nil(t, err)
+
+	assert.Equal(t, true, si.IsValueSealed())
 
 }

@@ -62,6 +62,14 @@ func (c SMTPConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
+func (c *SMTPConfig) Seal(sealer *secrets.SecretSealer) error {
+	err := c.Password.SealValue(sealer)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type IMAPConfig struct {
 	ServerAddress string `yaml:"server_address"`
 	Port          uint
@@ -100,6 +108,14 @@ func (c IMAPConfig) Validate(vp *validation.ValidationProcess) error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *IMAPConfig) Seal(sealer *secrets.SecretSealer) error {
+	err := c.Password.SealValue(sealer)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -148,6 +164,25 @@ func (c MailAccountConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
+func (c *MailAccountConfig) Seal(sealer *secrets.SecretSealer) error {
+	//validate sub structs
+	if c.SMTP != nil {
+		err := c.SMTP.Seal(sealer)
+		if err != nil {
+			return err
+		}
+	}
+
+	if c.IMAP != nil {
+		err := c.IMAP.Seal(sealer)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 type SendLimit struct {
 	MinPeriodMinutes int      `yaml:"min_period_minutes"`
 	AccountNames     []string `yaml:"account_names"`
@@ -169,6 +204,11 @@ func (c SendLimit) Validate(vp *validation.ValidationProcess) error {
 		)
 	}
 
+	return nil
+}
+
+func (c *SendLimit) Seal(sealer *secrets.SecretSealer) error {
+	//nothing to seal
 	return nil
 }
 
@@ -231,6 +271,26 @@ func (c MailConfig) Validate(vp *validation.ValidationProcess) error {
 		}
 		//add the name in use to the map
 		namesInUse[account.Name] = true
+	}
+
+	return nil
+}
+
+func (c *MailConfig) Seal(sealer *secrets.SecretSealer) error {
+
+	//seal individual struct members
+	for _, account := range c.Accounts {
+		err := account.Seal(sealer)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, sendLimit := range c.SendLimits {
+		err := sendLimit.Seal(sealer)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
