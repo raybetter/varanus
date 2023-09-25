@@ -11,6 +11,7 @@ import (
 	"hash"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/youmark/pkcs8"
 )
@@ -44,16 +45,16 @@ func computeMaximumSecretSize(publicKey *rsa.PublicKey) int {
 // Unsealer
 //--------------------------------------------------------------------------------------------------
 
-// SecretUnsealer opens secrets sealed by SecretSealer for use by the system
-type SecretUnsealer struct {
+// secretUnsealerImpl opens secrets sealed by SecretSealer for use by the system
+type secretUnsealerImpl struct {
 	privateKey *rsa.PrivateKey
 }
 
-func (su *SecretUnsealer) HasKey() bool {
+func (su *secretUnsealerImpl) HasKey() bool {
 	return su.privateKey != nil
 }
 
-func (su *SecretUnsealer) LoadPrivateKeyFromFile(filename string, passphrase string) error {
+func (su *secretUnsealerImpl) LoadPrivateKeyFromFile(filename string, passphrase string) error {
 	keyBuffer, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading '%s': %w", filename, err)
@@ -65,21 +66,22 @@ func (su *SecretUnsealer) LoadPrivateKeyFromFile(filename string, passphrase str
 	return nil
 }
 
-func (su *SecretUnsealer) LoadPrivateKey(rawBytes []byte, passphrase string) error {
+func (su *secretUnsealerImpl) LoadPrivateKey(rawBytes []byte, passphrase string) error {
 	privateBlock, _ := pem.Decode([]byte(rawBytes))
+	if privateBlock == nil {
+		return fmt.Errorf("pem decoding failed")
+	}
 	rsaPrivateKey, err := pkcs8.ParsePKCS8PrivateKeyRSA(privateBlock.Bytes, []byte(passphrase))
 	if err != nil {
+		if strings.Contains(err.Error(), "use ParseECPrivateKey instead") {
+			return fmt.Errorf("not a supported key type.  Use an RSA key")
+		}
+		if strings.Contains(err.Error(), "incorrect password") {
+			return fmt.Errorf("incorrect password or unsupported key type")
+		}
+
 		return fmt.Errorf("error decoding key: %w", err)
 	}
-
-	// genericPrivateKey, err := x509.ParsePKCS8PrivateKey(privateBlock.Bytes)
-	// if err != nil {
-	// 	return fmt.Errorf("error decoding key: %w", err)
-	// }
-	// rsaPrivateKey, ok := genericPrivateKey.(*rsa.PrivateKey)
-	// if !ok {
-	// 	return fmt.Errorf("the key is not an RSA private key")
-	// }
 
 	//make sure the key is long enough to be useful
 	if computeMaximumSecretSize(&rsaPrivateKey.PublicKey) < MIN_SECRET_EFFECTIVE_LENGTH {
@@ -90,11 +92,11 @@ func (su *SecretUnsealer) LoadPrivateKey(rawBytes []byte, passphrase string) err
 	return nil
 }
 
-func (su *SecretUnsealer) ClearKeys() {
+func (su *secretUnsealerImpl) ClearKeys() {
 	su.privateKey = nil
 }
 
-func (su SecretUnsealer) UnsealSecret(cipherText string) (string, error) {
+func (su secretUnsealerImpl) UnsealSecret(cipherText string) (string, error) {
 	if su.privateKey == nil {
 		return "", fmt.Errorf("no private key set")
 	}
@@ -111,20 +113,24 @@ func (su SecretUnsealer) UnsealSecret(cipherText string) (string, error) {
 	return string(plaintext), nil
 }
 
+func (su *secretUnsealerImpl) UnsealSecretHolder(holder SecretHolder) {
+	holder.Unseal(su)
+}
+
 //--------------------------------------------------------------------------------------------------
 // Sealer
 //--------------------------------------------------------------------------------------------------
 
-// SecretSealer seal secrets in a way that they can be unsealed later by the SecretUnsealer
-type SecretSealer struct {
+// secretSealerImpl seal secrets in a way that they can be unsealed later by the SecretUnsealer
+type secretSealerImpl struct {
 	publicKey *rsa.PublicKey
 }
 
-func (ss *SecretSealer) HasKey() bool {
+func (ss *secretSealerImpl) HasKey() bool {
 	return ss.publicKey != nil
 }
 
-func (ss *SecretSealer) LoadPublicKeyFromFile(filename string) error {
+func (ss *secretSealerImpl) LoadPublicKeyFromFile(filename string) error {
 	keyBuffer, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading '%s': %w", filename, err)
@@ -136,8 +142,11 @@ func (ss *SecretSealer) LoadPublicKeyFromFile(filename string) error {
 	return nil
 }
 
-func (ss *SecretSealer) LoadPublicKey(rawBytes []byte) error {
+func (ss *secretSealerImpl) LoadPublicKey(rawBytes []byte) error {
 	publicBlock, _ := pem.Decode([]byte(rawBytes))
+	if publicBlock == nil {
+		return fmt.Errorf("pem decoding failed")
+	}
 	genericPublicKey, err := x509.ParsePKIXPublicKey(publicBlock.Bytes)
 	if err != nil {
 		return fmt.Errorf("error decoding key: %w", err)
@@ -156,18 +165,18 @@ func (ss *SecretSealer) LoadPublicKey(rawBytes []byte) error {
 	return nil
 }
 
-func (ss *SecretSealer) ClearKeys() {
+func (ss *secretSealerImpl) ClearKeys() {
 	ss.publicKey = nil
 }
 
-func (ss SecretSealer) GetMaximumSecretSize() (int, error) {
+func (ss secretSealerImpl) GetMaximumSecretSize() (int, error) {
 	if ss.publicKey == nil {
 		return 0, fmt.Errorf("no public key set")
 	}
 	return computeMaximumSecretSize(ss.publicKey), nil
 }
 
-func (ss SecretSealer) SealSecret(secretToSeal string) (string, error) {
+func (ss secretSealerImpl) SealSecret(secretToSeal string) (string, error) {
 	if ss.publicKey == nil {
 		return "", fmt.Errorf("no public key set")
 	}
@@ -188,4 +197,8 @@ func (ss SecretSealer) SealSecret(secretToSeal string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func (ss *secretSealerImpl) SealSecretHolder(holder SecretHolder) {
+	holder.Seal(ss)
 }

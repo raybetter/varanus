@@ -24,12 +24,25 @@ openssl rsa -in key-2048.pem -pubout > key-2048.pub
 openssl genpkey -out key-512.pem -algorithm RSA -pkeyopt rsa_keygen_bits:512
 openssl rsa -in key-512.pem -pubout > key-512.pub
 
-# generate keys with unsupported cipher
-openssl ecparam -name secp256k1 -genkey -noout -out key-EC.pem
+# generate key with unsupported cipher
+openssl ecparam -name secp256k1 -genkey -noout -out key-EC-unsupported.pem
+openssl ec -in key-EC-unsupported.pem -pubout > key-EC-unsupported.pub
+
+# generate key with unsupported cipher
+openssl ecparam -name secp384r1 -genkey -noout -out key-EC.pem
 openssl ec -in key-EC.pem -pubout > key-EC.pub
+
+
+# validly password protected but invalid cipher
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp384r1 \
+    | openssl pkcs8 -topk8 -v2 aes-256-cbc -v2prf hmacWithSHA256 \
+        -out key-EC-with-pw.pem -passout pass:testpassword!
+openssl ec -in key-EC-with-pw.pem -passin pass:testpassword! -pubout > key-EC-with-pw.pub
 
 echo "-----BEGIN PRIVATE KEY-----
 not a valid key file
 -----END PRIVATE KEY-----" > not-a-key.txt
+
+touch empty_key_file.txt
 
 echo "All test keys were generated successfully"

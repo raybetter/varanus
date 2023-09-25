@@ -15,7 +15,7 @@ func TestSealedItemSealed(t *testing.T) {
 	si := CreateSealedItem("sealed(+abcdef+jk==)")
 
 	assert.Equal(t, true, si.IsValueSealed())
-	assert.Equal(t, "+abcdef+jk==", si.GetValue())
+	assert.Equal(t, "sealed(+abcdef+jk==)", si.GetValue())
 
 	//should have no validation failures
 	vp := validation.ValidationProcess{}
@@ -46,8 +46,7 @@ func TestSealedItemUnsealed(t *testing.T) {
 	si := CreateSealedItem("some text")
 
 	assert.Equal(t, false, si.IsValueSealed())
-	//should not get any text from GetValue because we're not supposed to read unsealed secrets
-	assert.Equal(t, "", si.GetValue())
+	assert.Equal(t, "some text", si.GetValue())
 
 	//should have no validation failures
 	vp := validation.ValidationProcess{}
@@ -65,12 +64,12 @@ func TestSealedItemUnsealed(t *testing.T) {
 
 	//check marshal values
 	yamlValue, err := si.MarshalYAML()
-	assert.ErrorContains(t, err, "attempt to marshal an unsealed SealedItem is not allowed")
-	assert.Nil(t, yamlValue)
+	assert.Nil(t, err)
+	assert.Equal(t, "some text", yamlValue)
 
 	jsonValue, err := si.MarshalJSON()
-	assert.ErrorContains(t, err, "attempt to marshal an unsealed SealedItem is not allowed")
-	assert.Equal(t, []byte{}, jsonValue)
+	assert.Nil(t, err)
+	assert.Equal(t, `"some text"`, string(jsonValue))
 }
 
 func TestUnsafeCreation(t *testing.T) {
@@ -184,76 +183,154 @@ func TestSealedItemUnmarshaling(t *testing.T) {
 
 }
 
-var testKey string = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAybHNVmB0+9tNyZyKiMCJ
-Qz0gUW/QtNdQd/XX26w6SCQtJVoM+o6r5vbz9YQoKHYe8vfeUdEmE79UorMMmndB
-S8v8lMwWuCEy9MfcMRsSWnz8u9yRyhVfjaqEnMJHu2Pw05GLhQVf7fD+45eSTUZa
-EenaOZUXQX9RVA2MEA4TuaIIAM7uMEbU2ta0zM8A9WathRkqxqNN/2l24Y3AjWek
-xA1thE7wHvGtvhAO3v1S1GFbH/bbBoLSm3Ry+dZV8Hw+CK+h/soXzEjg7uIR67gW
-SRZ3CPOGK2/0pQTLDMxQ9zCAzgAArMFAtjEe0Os51NgK5r170s00EY4mNTSE7285
-5dLg+vJ3dcT5R1rbvElE3HI0JpmACNCGTxumML5f2GMiRgPyLsAbrOxDIhYessrj
-QkZixmITW5dDvltbB/Rc8yojR3qvSe5SRD0kH/R2wikJnFA/rlQHWKR37e0/uMOu
-cQGgeQB5EVF9Kskljo9VyPk7laqCJMMoZc1Ka21QhSLRDbNuXrNcfaDGDMJ5uk+w
-3rDktpcFb/4cv5Jc+noMym+MiEZemvQz9cJjlBGdov/tPvjzaJERtbjrzSXQpO5f
-C6CO4UwI/B/OEswbmNxW50Lh1rGQUrrVVSxpT2Co18xaAJO144cqkMO+UcDxWcgr
-PFX6vkNXMsPZ4hxALqlxYZUCAwEAAQ==
------END PUBLIC KEY-----`
+func TestSealedItemSealAndUnseal(t *testing.T) {
 
-func TestSealedItemSealWithKey(t *testing.T) {
+	secretValue := "unsealed value -- it's a secret!"
+
 	//make an unsealed value
-	si := CreateSealedItem("unsealed value -- it's a secret!")
+	si := CreateSealedItem(secretValue)
 
 	assert.Equal(t, false, si.IsValueSealed())
+	assert.Equal(t, secretValue, si.GetValue())
+
+	{
+		//check the item with no key
+		sealCheckResult := si.CheckSeals(nil)
+		assert.Equal(t, 1, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 0, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+	}
 
 	//get a sealer to seal it
-	sealer := SecretSealer{}
-	err := sealer.LoadPublicKey([]byte(testKey))
+	sealer := MakeSecretSealer()
+	err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
 	assert.Nil(t, err)
 
-	err = si.SealValue(&sealer)
+	err = si.Seal(sealer)
 	assert.Nil(t, err)
 
 	assert.Equal(t, true, si.IsValueSealed())
 
-	//validate the sealed value to make sure our validation works on an actual sealed value
-	//should have no validation failures
-	vp := validation.ValidationProcess{}
+	{
+		//validate the sealed value to make sure our validation works on an actual sealed value
+		//should have no validation failures
+		vp := validation.ValidationProcess{}
+		err = si.Validate(&vp)
+		assert.Nil(t, err)
+		err = vp.GetFinalValidationError()
+		assert.Nil(t, err)
+	}
 
-	err = si.Validate(&vp)
+	{
+		//check the sealed item with no key
+		sealCheckResult := si.CheckSeals(nil)
+		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 1, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+	}
+
+	//a second sealing should succeed but not change state
+	oldValue := si.value
+	err = si.Seal(sealer)
 	assert.Nil(t, err)
 
-	err = vp.GetFinalValidationError()
+	assert.Equal(t, true, si.IsValueSealed())
+	assert.Equal(t, oldValue, si.value)
+
+	//make an unsealer with a private key
+	unsealer := MakeSecretUnsealer()
+	unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
+
+	{
+		//check the sealed item with the key
+		sealCheckResult := si.CheckSeals(unsealer)
+		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 1, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+	}
+
+	//now unseal it
+	err = si.Unseal(unsealer)
 	assert.Nil(t, err)
+
+	assert.False(t, si.IsValueSealed())
+	assert.Equal(t, secretValue, si.GetValue())
+
+	{
+		//check the item with the key
+		sealCheckResult := si.CheckSeals(unsealer)
+		assert.Equal(t, 1, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 0, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+	}
+
+	//now unseal it again -- should have no error and no effect
+	err = si.Unseal(unsealer)
+	assert.Nil(t, err)
+
+	assert.False(t, si.IsValueSealed())
+	assert.Equal(t, secretValue, si.GetValue())
 
 }
 
-func TestSealedItemSealWithKeyErrors(t *testing.T) {
+func TestSealedItemSealAndUnsealeWithErrors(t *testing.T) {
+
+	secretValue := "unsealed value -- it's a secret!"
+
 	//make an unsealed value
-	si := CreateSealedItem("unsealed value -- it's a secret!")
+	si := CreateSealedItem(secretValue)
 
 	assert.Equal(t, false, si.IsValueSealed())
 
 	//get a sealer to seal it
-	sealer := SecretSealer{}
+	sealer := MakeSecretSealer()
 
 	//try to seal without loading the public key
-	err := si.SealValue(&sealer)
-	assert.ErrorContains(t, err, "failed to seal secret no public key set")
+	err := si.Seal(sealer)
+	assert.ErrorContains(t, err, "failed to seal secret: no public key set")
 
 	//now load a key in the sealer
-	err = sealer.LoadPublicKey([]byte(testKey))
+	err = sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
 	assert.Nil(t, err)
 
 	//seal the valid with the valid sealer
-	err = si.SealValue(&sealer)
+	err = si.Seal(sealer)
 	assert.Nil(t, err)
 
 	assert.Equal(t, true, si.IsValueSealed())
 
-	//a second sealing should succeed but not change state
-	err = si.SealValue(&sealer)
-	assert.Nil(t, err)
+	//now corrupt the sealed value
+	corruptSealedValue := "+aaaaaaa=="
+	si.value = corruptSealedValue
 
-	assert.Equal(t, true, si.IsValueSealed())
+	//make an unsealer with a private key
+	unsealer := MakeSecretUnsealer()
+	unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
+
+	{
+		//check the sealed item with the key
+		sealCheckResult := si.CheckSeals(unsealer)
+		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 1, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 1)
+		assert.ErrorContains(t, sealCheckResult.UnsealErrors[0], "crypto/rsa: decryption error")
+	}
+
+	//now try to unseal it
+	err = si.Unseal(unsealer)
+	assert.ErrorContains(t, err, "crypto/rsa: decryption error")
+
+	//it should still be sealed and the corrupted value unchanged
+	assert.True(t, si.IsValueSealed())
+	assert.Equal(t, corruptSealedValue, si.value)
+
+	{
+		//check the item with the key again
+		sealCheckResult := si.CheckSeals(unsealer)
+		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
+		assert.Equal(t, 1, sealCheckResult.SealedCount)
+		assert.Len(t, sealCheckResult.UnsealErrors, 1)
+		assert.ErrorContains(t, sealCheckResult.UnsealErrors[0], "crypto/rsa: decryption error")
+	}
 
 }

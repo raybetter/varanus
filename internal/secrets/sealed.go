@@ -9,12 +9,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Sealable interface {
-	Seal(sealer *SecretSealer) error
-}
-
 // note that inner group corresponds to internal/secrets/secretmgr.SealedValueRegex
 var sealedWrapperRegex = regexp.MustCompile(`^sealed\((.*)\)$`)
+
+func wrapSealedString(value string) string {
+	return fmt.Sprintf("sealed(%s)", value)
+}
 
 // CreateUnsafeSealedItem creates a sealed item from raw data with no checks -- primarily used for testing.
 func CreateUnsafeSealedItem(value string, isSealed bool) SealedItem {
@@ -47,8 +47,8 @@ func (si SealedItem) IsValueSealed() bool {
 }
 
 func (si SealedItem) GetValue() string {
-	if !si.isSealed {
-		return ""
+	if si.isSealed {
+		return wrapSealedString(si.value)
 	}
 	return si.value
 }
@@ -69,19 +69,52 @@ func (si SealedItem) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-// SealValue seals the secret in the sealed value using the supplied SecretSealer.  Calls to SealValue are
+// Seal seals the secret in the sealed value using the supplied SecretSealer.  Calls to Seal are
 // idempotent -- if the item is already sealed, then nothing happens.
-func (si *SealedItem) SealValue(sealer *SecretSealer) error {
+func (si *SealedItem) Seal(sealer SecretSealer) error {
 	if si.isSealed {
 		return nil
 	}
 	sealedValue, err := sealer.SealSecret(si.value)
 	if err != nil {
-		return fmt.Errorf("failed to seal secret %w", err)
+		return fmt.Errorf("failed to seal secret: %w", err)
 	}
 	si.value = sealedValue
 	si.isSealed = true
 	return nil
+}
+
+// SealValue seals the secret in the sealed value using the supplied SecretSealer.  Calls to SealValue are
+// idempotent -- if the item is already sealed, then nothing happens.
+func (si *SealedItem) Unseal(unsealer SecretUnsealer) error {
+	if !si.isSealed {
+		return nil
+	}
+	unsealedValue, err := unsealer.UnsealSecret(si.value)
+	if err != nil {
+		return fmt.Errorf("failed to unseal secret %w", err)
+	}
+	si.value = unsealedValue
+	si.isSealed = false
+	return nil
+}
+
+func (si *SealedItem) CheckSeals(unsealer SecretUnsealer) SealCheckResult {
+	result := SealCheckResult{}
+	if si.isSealed {
+		result.SealedCount = 1
+
+		if unsealer != nil {
+			//check that we can unseal the secret
+			_, err := unsealer.UnsealSecret(si.value)
+			if err != nil {
+				result.UnsealErrors = append(result.UnsealErrors, err)
+			}
+		}
+	} else {
+		result.UnsealedCount = 1
+	}
+	return result
 }
 
 func (si SealedItem) String() string {
@@ -98,12 +131,8 @@ func (si SealedItem) GoString() string {
 
 // ------------------------------- YAML marshaling and unmarshaling --------------------------------
 
-func (si *SealedItem) MarshalYAML() (interface{}, error) {
-	if !si.isSealed {
-		return nil, fmt.Errorf("attempt to marshal an unsealed SealedItem is not allowed")
-	}
-	//wrap the sealed secret in the string marker
-	return fmt.Sprintf("sealed(%s)", si.value), nil
+func (si SealedItem) MarshalYAML() (interface{}, error) {
+	return si.GetValue(), nil
 }
 
 func (si *SealedItem) UnmarshalYAML(value *yaml.Node) error {
@@ -119,12 +148,8 @@ func (si *SealedItem) UnmarshalYAML(value *yaml.Node) error {
 
 // ------------------------------- JSON marshaling and unmarshaling --------------------------------
 
-func (si *SealedItem) MarshalJSON() ([]byte, error) {
-	if !si.isSealed {
-		return []byte{}, fmt.Errorf("attempt to marshal an unsealed SealedItem is not allowed")
-	}
-	//wrap the sealed secret in the string marker
-	return []byte(fmt.Sprintf(`"sealed(%s)"`, si.value)), nil
+func (si SealedItem) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + si.GetValue() + `"`), nil
 }
 
 func (si *SealedItem) UnmarshalJSON(valueByte []byte) error {

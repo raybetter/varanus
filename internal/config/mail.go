@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"net/mail"
 	"strings"
 	"varanus/internal/secrets"
@@ -62,12 +63,29 @@ func (c SMTPConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *SMTPConfig) Seal(sealer *secrets.SecretSealer) error {
-	err := c.Password.SealValue(sealer)
+func (c *SMTPConfig) Seal(sealer secrets.SecretSealer) error {
+	err := AddTokenToPathError(c.Password.Seal(sealer), "password")
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (c *SMTPConfig) Unseal(unsealer secrets.SecretUnsealer) error {
+	err := AddTokenToPathError(c.Password.Unseal(unsealer), "password")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *SMTPConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+	result := c.Password.CheckSeals(unsealer)
+	result.UnsealErrors = AddTokenToPathErrorList(
+		result.UnsealErrors,
+		fmt.Sprintf("password"),
+	)
+	return result
 }
 
 type IMAPConfig struct {
@@ -111,18 +129,35 @@ func (c IMAPConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *IMAPConfig) Seal(sealer *secrets.SecretSealer) error {
-	err := c.Password.SealValue(sealer)
+func (c *IMAPConfig) Seal(sealer secrets.SecretSealer) error {
+	err := AddTokenToPathError(c.Password.Seal(sealer), "password")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func (c *IMAPConfig) Unseal(unsealer secrets.SecretUnsealer) error {
+	err := AddTokenToPathError(c.Password.Unseal(unsealer), "password")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *IMAPConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+	result := c.Password.CheckSeals(unsealer)
+	result.UnsealErrors = AddTokenToPathErrorList(
+		result.UnsealErrors,
+		fmt.Sprintf("password"),
+	)
+	return result
+}
+
 type MailAccountConfig struct {
 	Name string
-	SMTP *SMTPConfig
-	IMAP *IMAPConfig
+	SMTP *SMTPConfig `yaml:",omitempty"`
+	IMAP *IMAPConfig `yaml:",omitempty"`
 }
 
 func (c MailAccountConfig) Validate(vp *validation.ValidationProcess) error {
@@ -164,23 +199,68 @@ func (c MailAccountConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *MailAccountConfig) Seal(sealer *secrets.SecretSealer) error {
+func (c *MailAccountConfig) Seal(sealer secrets.SecretSealer) error {
 	//validate sub structs
 	if c.SMTP != nil {
-		err := c.SMTP.Seal(sealer)
+		err := AddTokenToPathError(c.SMTP.Seal(sealer), "SMTP")
 		if err != nil {
 			return err
 		}
 	}
 
 	if c.IMAP != nil {
-		err := c.IMAP.Seal(sealer)
+		err := AddTokenToPathError(c.IMAP.Seal(sealer), "IMAP")
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (c *MailAccountConfig) Unseal(unsealer secrets.SecretUnsealer) error {
+	//validate sub structs
+	if c.SMTP != nil {
+		err := AddTokenToPathError(c.SMTP.Unseal(unsealer), "SMTP")
+		if err != nil {
+			return err
+		}
+	}
+
+	if c.IMAP != nil {
+		err := AddTokenToPathError(c.IMAP.Unseal(unsealer), "IMAP")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *MailAccountConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+
+	result := secrets.SealCheckResult{}
+
+	//validate sub structs
+	if c.SMTP != nil {
+		intermediateResult := c.SMTP.CheckSeals(unsealer)
+		intermediateResult.UnsealErrors = AddTokenToPathErrorList(
+			intermediateResult.UnsealErrors,
+			fmt.Sprintf("SMTP"),
+		)
+		result.Append(intermediateResult)
+	}
+
+	if c.IMAP != nil {
+		intermediateResult := c.IMAP.CheckSeals(unsealer)
+		intermediateResult.UnsealErrors = AddTokenToPathErrorList(
+			intermediateResult.UnsealErrors,
+			fmt.Sprintf("IMAP"),
+		)
+		result.Append(intermediateResult)
+	}
+
+	return result
 }
 
 type SendLimit struct {
@@ -207,9 +287,19 @@ func (c SendLimit) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *SendLimit) Seal(sealer *secrets.SecretSealer) error {
+func (c *SendLimit) Seal(sealer secrets.SecretSealer) error {
 	//nothing to seal
 	return nil
+}
+
+func (c *SendLimit) Unseal(unsealer secrets.SecretUnsealer) error {
+	//nothing to unseal
+	return nil
+}
+
+func (c *SendLimit) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+	//nothing to check
+	return secrets.SealCheckResult{}
 }
 
 type MailConfig struct {
@@ -276,22 +366,66 @@ func (c MailConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *MailConfig) Seal(sealer *secrets.SecretSealer) error {
+func (c *MailConfig) Seal(sealer secrets.SecretSealer) error {
 
 	//seal individual struct members
-	for _, account := range c.Accounts {
-		err := account.Seal(sealer)
+	for index, account := range c.Accounts {
+		err := AddTokenToPathError(account.Seal(sealer), fmt.Sprintf("accounts[%d]", index))
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, sendLimit := range c.SendLimits {
-		err := sendLimit.Seal(sealer)
+	for index, sendLimit := range c.SendLimits {
+		err := AddTokenToPathError(sendLimit.Seal(sealer), fmt.Sprintf("send_limits[%d]", index))
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (c *MailConfig) Unseal(unsealer secrets.SecretUnsealer) error {
+
+	//seal individual struct members
+	for index, account := range c.Accounts {
+		err := AddTokenToPathError(account.Unseal(unsealer), fmt.Sprintf("accounts[%d]", index))
+		if err != nil {
+			return err
+		}
+	}
+
+	for index, sendLimit := range c.SendLimits {
+		err := AddTokenToPathError(sendLimit.Unseal(unsealer), fmt.Sprintf("send_limits[%d]", index))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *MailConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+	result := secrets.SealCheckResult{}
+	//seal individual struct members
+	for index, account := range c.Accounts {
+		intermediateResult := account.CheckSeals(unsealer)
+		intermediateResult.UnsealErrors = AddTokenToPathErrorList(
+			intermediateResult.UnsealErrors,
+			fmt.Sprintf("accounts[%d]", index),
+		)
+		result.Append(intermediateResult)
+	}
+
+	for index, sendLimit := range c.SendLimits {
+		intermediateResult := sendLimit.CheckSeals(unsealer)
+		intermediateResult.UnsealErrors = AddTokenToPathErrorList(
+			intermediateResult.UnsealErrors,
+			fmt.Sprintf("send_limits[%d]", index),
+		)
+		result.Append(intermediateResult)
+	}
+
+	return result
 }

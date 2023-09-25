@@ -21,9 +21,15 @@ const (
 	PRIVATE_KEY_2048_FILENAME           = "key-2048.pem"
 	PUBLIC_KEY_512_FILENAME             = "key-512.pub"
 	PRIVATE_KEY_512_FILENAME            = "key-512.pem"
-	PUBLIC_KEY_UNSUPPORTED_FILENAME     = "key-EC.pub"
-	PRIVATE_KEY_UNSUPPORTED_FILENAME    = "key-EC.pem"
+	PUBLIC_KEY_EC_FILENAME              = "key-EC.pub"
+	PRIVATE_KEY_EC_FILENAME             = "key-EC.pem"
+	PUBLIC_KEY_UNSUPPORTED_FILENAME     = "key-EC-unsupported.pub"
+	PRIVATE_KEY_UNSUPPORTED_FILENAME    = "key-EC-unsupported.pem"
+	PUBLIC_KEY_EC_WITH_PW_FILENAME      = "key-EC-with-pw.pub"
+	PRIVATE_KEY_EC_WITH_PW_FILENAME     = "key-EC-with-pw.pem"
 	NOT_A_KEY_FILENAME                  = "not-a-key.txt"
+	EMPTY_KEY_FILE_FILENAME             = "empty_key_file.txt"
+	TEST_KEY_PASSPHRASE                 = "testpassword!"
 )
 
 func makeRandomString(length int) string {
@@ -45,14 +51,14 @@ func TestMakeRandomString(t *testing.T) {
 
 func TestSealAndUnsealWithPassphrase(t *testing.T) {
 
-	sealer := SecretSealer{}
+	sealer := secretSealerImpl{}
 	err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_WITH_PASS_FILENAME)
 	assert.Nil(t, err)
 
-	unsealer := SecretUnsealer{}
+	unsealer := secretUnsealerImpl{}
 	err = unsealer.LoadPrivateKeyFromFile(
 		TEST_FILE_PREFIX+PRIVATE_KEY_4096_WITH_PASS_FILENAME,
-		"testpassword!")
+		TEST_KEY_PASSPHRASE)
 	assert.Nil(t, err)
 
 	secretMessage := `I am a very model of a modern major general`
@@ -71,20 +77,20 @@ func TestSealAndUnsealWithPassphrase(t *testing.T) {
 
 func TestBadKeyPassphrase(t *testing.T) {
 
-	unsealer := SecretUnsealer{}
+	unsealer := secretUnsealerImpl{}
 	err := unsealer.LoadPrivateKeyFromFile(
 		TEST_FILE_PREFIX+PRIVATE_KEY_4096_WITH_PASS_FILENAME,
 		"NOT THE RIGHT PASSPHRASE")
-	assert.ErrorContains(t, err, " pkcs8: incorrect password")
+	assert.ErrorContains(t, err, "incorrect password or unsupported key type")
 
 }
 
 func TestSealAndUnsealWithoutPassphrase(t *testing.T) {
 
-	sealer := SecretSealer{}
+	sealer := secretSealerImpl{}
 	sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
 
-	unsealer := SecretUnsealer{}
+	unsealer := secretUnsealerImpl{}
 	unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
 
 	secretMessage := `I am a very model of a modern major general`
@@ -103,8 +109,8 @@ func TestSealAndUnsealWithoutPassphrase(t *testing.T) {
 
 func TestUninitializedErrors(t *testing.T) {
 
-	sealerLong := SecretSealer{}
-	unsealerLong := SecretUnsealer{}
+	sealerLong := secretSealerImpl{}
+	unsealerLong := secretUnsealerImpl{}
 
 	maxLen, err := sealerLong.GetMaximumSecretSize()
 	assert.Equal(t, 0, maxLen)
@@ -122,22 +128,33 @@ func TestUninitializedErrors(t *testing.T) {
 
 func TestBadFileErrors(t *testing.T) {
 
-	sealer := SecretSealer{}
-	unsealer := SecretUnsealer{}
-
 	//invalid key files
 	{
+		sealer := secretSealerImpl{}
 		err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + NOT_A_KEY_FILENAME)
 		assert.ErrorContains(t, err, "error decoding key")
 	}
-
 	{
+		unsealer := secretUnsealerImpl{}
 		err := unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+NOT_A_KEY_FILENAME, "")
 		assert.ErrorContains(t, err, "error decoding key")
 	}
 
+	//empty key files
+	{
+		sealer := secretSealerImpl{}
+		err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + EMPTY_KEY_FILE_FILENAME)
+		assert.ErrorContains(t, err, "pem decoding failed")
+	}
+	{
+		unsealer := secretUnsealerImpl{}
+		err := unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+EMPTY_KEY_FILE_FILENAME, "")
+		assert.ErrorContains(t, err, "pem decoding failed")
+	}
+
 	//nonexistent filenames
 	{
+		sealer := secretSealerImpl{}
 		err := sealer.LoadPublicKeyFromFile("nonexistent/path/and/file.pem")
 		//for unknown reason, sometimes the error is different, so allow either error
 		assert.True(t,
@@ -146,6 +163,7 @@ func TestBadFileErrors(t *testing.T) {
 	}
 
 	{
+		unsealer := secretUnsealerImpl{}
 		err := unsealer.LoadPrivateKeyFromFile("nonexistent/path/and/file.pub", "")
 		//for unknown reason, sometimes the error is different, so allow either error
 		assert.True(t,
@@ -153,15 +171,47 @@ func TestBadFileErrors(t *testing.T) {
 				strings.Contains(err.Error(), "no such file or directory")))
 	}
 
-	//keys with unsupported ciphers
+	//unsupported key type
 	{
-		err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_UNSUPPORTED_FILENAME)
-		assert.ErrorContains(t, err, "error decoding key")
+		sealer := secretSealerImpl{}
+		err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_EC_FILENAME)
+		assert.ErrorContains(t, err, "the key is not an RSA public key")
 	}
 
 	{
+		unsealer := secretUnsealerImpl{}
+		err := unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_EC_FILENAME, "")
+		assert.ErrorContains(t, err, "not a supported key type.  Use an RSA key")
+	}
+
+	//keys with unsupported ciphers
+	{
+		sealer := secretSealerImpl{}
+		err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_UNSUPPORTED_FILENAME)
+		assert.ErrorContains(t, err, "unsupported elliptic curve")
+	}
+
+	{
+		unsealer := secretUnsealerImpl{}
 		err := unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_UNSUPPORTED_FILENAME, "")
-		assert.ErrorContains(t, err, "error decoding key")
+		assert.ErrorContains(t, err, "not a supported key type.  Use an RSA key")
+	}
+
+	{
+		sealer := secretSealerImpl{}
+		err := sealer.LoadPublicKeyFromFile(
+			TEST_FILE_PREFIX + PUBLIC_KEY_EC_WITH_PW_FILENAME,
+		)
+		assert.ErrorContains(t, err, "the key is not an RSA public key")
+	}
+
+	{
+		unsealer := secretUnsealerImpl{}
+		err := unsealer.LoadPrivateKeyFromFile(
+			TEST_FILE_PREFIX+PRIVATE_KEY_EC_WITH_PW_FILENAME,
+			TEST_KEY_PASSPHRASE,
+		)
+		assert.ErrorContains(t, err, "key block is not of type RSA")
 	}
 
 }
@@ -171,12 +221,12 @@ func TestMaxLengths(t *testing.T) {
 	const EXPECTED_4096_MESSAGE_SIZE int = 446
 	const EXPECTED_2048_MESSAGE_SIZE int = 190
 
-	sealer4096 := SecretSealer{}
-	unsealer4096 := SecretUnsealer{}
-	sealer2048 := SecretSealer{}
-	unsealer2048 := SecretUnsealer{}
-	sealer512 := SecretSealer{}
-	unsealer512 := SecretUnsealer{}
+	sealer4096 := secretSealerImpl{}
+	unsealer4096 := secretUnsealerImpl{}
+	sealer2048 := secretSealerImpl{}
+	unsealer2048 := secretUnsealerImpl{}
+	sealer512 := secretSealerImpl{}
+	unsealer512 := secretUnsealerImpl{}
 
 	//load 4096 keys
 	{
@@ -231,7 +281,7 @@ func TestMaxLengths(t *testing.T) {
 	}
 
 	//seal and unseal things of different lengths to validate the lengths
-	seal_and_unseal := func(bufferLen int, context string, maxLength int, sealer *SecretSealer, unsealer *SecretUnsealer) {
+	seal_and_unseal := func(bufferLen int, context string, maxLength int, sealer *secretSealerImpl, unsealer *secretUnsealerImpl) {
 
 		//make a random message of a certain length
 		messageStr := makeRandomString(bufferLen)
@@ -283,10 +333,10 @@ func TestMaxLengths(t *testing.T) {
 
 func TestInvalidCiphertext(t *testing.T) {
 
-	sealer4096 := SecretSealer{}
-	unsealer4096 := SecretUnsealer{}
-	sealer2048 := SecretSealer{}
-	unsealer2048 := SecretUnsealer{}
+	sealer4096 := secretSealerImpl{}
+	unsealer4096 := secretUnsealerImpl{}
+	sealer2048 := secretSealerImpl{}
+	unsealer2048 := secretUnsealerImpl{}
 
 	{
 		err := sealer4096.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
@@ -337,6 +387,78 @@ func TestInvalidCiphertext(t *testing.T) {
 		recoveredInvalidCipherText, err := unsealer2048.UnsealSecret(invalidCipherText)
 		assert.Equal(t, "", recoveredInvalidCipherText)
 		assert.ErrorContains(t, err, "crypto/rsa: decryption error")
+	}
+
+}
+
+// MockSecretHolder provides a SecretHolder interface wrapper around a sealed item for testing
+type MockSecretHolder struct {
+	si SealedItem
+}
+
+func (msh *MockSecretHolder) Seal(sealer SecretSealer) error {
+	return msh.si.Seal(sealer)
+}
+func (msh *MockSecretHolder) Unseal(unsealer SecretUnsealer) error {
+	return msh.si.Unseal(unsealer)
+}
+func (msh *MockSecretHolder) CheckSeals(unsealer SecretUnsealer) SealCheckResult {
+	return msh.si.CheckSeals(unsealer)
+}
+
+func TestSecretHolderMethods(t *testing.T) {
+
+	sealer := secretSealerImpl{}
+	unsealer := secretUnsealerImpl{}
+
+	//make a sealer and unsealer
+	err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
+	assert.Nil(t, err)
+
+	err = unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
+	assert.Nil(t, err)
+
+	//make a mock secret holder
+	secretValue := "it's a secret."
+	msh := MockSecretHolder{
+		si: CreateSealedItem(secretValue),
+	}
+
+	//check the initial, unsealed state
+	{
+		check := msh.CheckSeals(&unsealer)
+		assert.Equal(t, 0, check.SealedCount)
+		assert.Equal(t, 1, check.UnsealedCount)
+		assert.Len(t, check.UnsealErrors, 0)
+	}
+
+	//seal and check
+	sealer.SealSecretHolder(&msh)
+	{
+		check := msh.CheckSeals(&unsealer)
+		assert.Equal(t, 1, check.SealedCount)
+		assert.Equal(t, 0, check.UnsealedCount)
+		assert.Len(t, check.UnsealErrors, 0)
+	}
+
+	//unseal and check
+	unsealer.UnsealSecretHolder(&msh)
+	{
+		check := msh.CheckSeals(&unsealer)
+		assert.Equal(t, 0, check.SealedCount)
+		assert.Equal(t, 1, check.UnsealedCount)
+		assert.Len(t, check.UnsealErrors, 0)
+	}
+
+	//corrupt and check
+	msh.si.isSealed = true
+	msh.si.value = "+aaaaaa=="
+	{
+		check := msh.CheckSeals(&unsealer)
+		assert.Equal(t, 1, check.SealedCount)
+		assert.Equal(t, 0, check.UnsealedCount)
+		assert.Len(t, check.UnsealErrors, 1)
+		assert.ErrorContains(t, check.UnsealErrors[0], "crypto/rsa: decryption error")
 	}
 
 }

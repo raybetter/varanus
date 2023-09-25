@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"varanus/internal/secrets"
@@ -22,6 +23,54 @@ func ReadConfig(filename string) (*VaranusConfig, error) {
 	}
 
 	return config, nil
+}
+
+func (c *VaranusConfig) ToYAML() (string, error) {
+	// //marshall config output
+	// yamlData, err := yaml.Marshal(c)
+	// if err != nil {
+	// 	return "", fmt.Errorf("YAML marshalling error: %w", err)
+	// }
+	// return string(yamlData), nil
+
+	var yamlData bytes.Buffer
+	yamlEncoder := yaml.NewEncoder(&yamlData)
+	yamlEncoder.SetIndent(2) // this is what you're looking for
+	err := yamlEncoder.Encode(c)
+	if err != nil {
+		return "", err
+	}
+
+	return yamlData.String(), nil
+
+}
+
+func (c *VaranusConfig) WriteConfig(filename string, forceOverwrite bool) error {
+	//write the config file back out
+	var flags int
+	if forceOverwrite {
+		//okay to overwrite an existing file
+		flags = os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	} else {
+		flags = os.O_RDWR | os.O_CREATE | os.O_EXCL
+	}
+
+	f, err := os.OpenFile(filename, flags, 0600)
+	if err != nil {
+		return fmt.Errorf("could not open file")
+	}
+
+	//convert to yaml
+	yaml, err := c.ToYAML()
+	if err != nil {
+		return err
+	}
+
+	//write out file
+	f.WriteString(yaml)
+
+	return nil
+
 }
 
 func parseAndValidateConfig(yamlData []byte) (*VaranusConfig, error) {
@@ -64,6 +113,14 @@ func (c *VaranusConfig) Validate(vp *validation.ValidationProcess) error {
 	return nil
 }
 
-func (c *VaranusConfig) Seal(sealer *secrets.SecretSealer) error {
-	return c.Mail.Seal(sealer)
+func (c *VaranusConfig) Seal(sealer secrets.SecretSealer) error {
+	return AddTokenToPathError(c.Mail.Seal(sealer), "mail")
+}
+
+func (c *VaranusConfig) Unseal(unsealer secrets.SecretUnsealer) error {
+	return AddTokenToPathError(c.Mail.Unseal(unsealer), "mail")
+}
+
+func (c *VaranusConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
+	return c.Mail.CheckSeals(unsealer)
 }

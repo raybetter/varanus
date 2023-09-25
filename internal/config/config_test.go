@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,13 +28,13 @@ func TestEndToEnd(t *testing.T) {
 	assert.Equal(t, "smtp.example.com", c.Mail.Accounts[0].SMTP.ServerAddress)
 	assert.Equal(t, uint(465), c.Mail.Accounts[0].SMTP.Port)
 	assert.Equal(t, "joeuser@example.com", c.Mail.Accounts[0].SMTP.Username)
-	assert.Equal(t, "+aaaaaa==", c.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.Equal(t, "it's a secret", c.Mail.Accounts[0].SMTP.Password.GetValue())
 
 	assert.NotNil(t, c.Mail.Accounts[0].IMAP)
 	assert.Equal(t, "imap.example.com", c.Mail.Accounts[0].IMAP.ServerAddress)
 	assert.Equal(t, uint(993), c.Mail.Accounts[0].IMAP.Port)
 	assert.Equal(t, "janeuser@example.com", c.Mail.Accounts[0].IMAP.Username)
-	assert.Equal(t, "+bbbbbb==", c.Mail.Accounts[0].IMAP.Password.GetValue())
+	assert.Equal(t, "sealed(+bbbbbb==)", c.Mail.Accounts[0].IMAP.Password.GetValue())
 
 	assert.Len(t, c.Mail.SendLimits, 1)
 	assert.Equal(t, c.Mail.SendLimits[0].MinPeriodMinutes, 10)
@@ -83,23 +84,22 @@ func TestYamlValidCases(t *testing.T) {
 		//both SMTP and IMAP in a config
 		// use different ports than the defaults to ensure they are picked up
 		{
-			Input: `---
-mail:
+			Input: `mail:
   accounts:
     - name: test1
       smtp:
-        sender_address: "example@example.com"
-        server_address: "smtp.example.com"	
+        sender_address: example@example.com
+        server_address: smtp.example.com
         port: 465
         username: joeuser@example.com
         password: sealed(+aaa/aaa==)
       imap:
-        server_address: "imap.example.com"
+        server_address: imap.example.com
         port: 993
         username: janeuser@example.com
         password: sealed(+bbb/bbb==)
   send_limits: []
-            `,
+`,
 			Result: VaranusConfig{
 				Mail: MailConfig{
 					Accounts: []MailAccountConfig{
@@ -128,18 +128,17 @@ mail:
 		//------------------------------------------------------------------------------------------
 		//SMTP but no IMAP config
 		{
-			Input: `---
-mail:
+			Input: `mail:
   accounts:
     - name: test1
       smtp:
-        sender_address: "example@example.com"
-        server_address: "smtp.example.com"
+        sender_address: example@example.com
+        server_address: smtp.example.com
         port: 465
         username: joeuser@example.com
         password: sealed(+abcdef==)
   send_limits: []
-            `,
+`,
 			Result: VaranusConfig{
 				Mail: MailConfig{
 					Accounts: []MailAccountConfig{
@@ -164,17 +163,16 @@ mail:
 		//IMAP but no SMTP in a config
 		// use different ports than the defaults to ensure they are picked up
 		{
-			Input: `---
-mail:
+			Input: `mail:
   accounts:
     - name: test1
       imap:
-        server_address: "imap.example.com"
+        server_address: imap.example.com
         port: 993
         username: janeuser@example.com
         password: sealed(+abcdef==)
   send_limits: []
-            `,
+`,
 			Result: VaranusConfig{
 				Mail: MailConfig{
 					Accounts: []MailAccountConfig{
@@ -205,6 +203,10 @@ mail:
 			"Configs not equal \nexpected: %# v\nactual: %# v",
 			pretty.Formatter(testCase.Result),
 			pretty.Formatter(config))
+		//check the marshalling back to the string representation
+		yamlString, err := config.ToYAML()
+		assert.Nil(t, err)
+		assert.Equal(t, testCase.Input, yamlString)
 	}
 
 }
@@ -427,12 +429,12 @@ mail:
 	assert.False(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
 
 	//make a secret sealer
-	sealer := secrets.SecretSealer{}
+	sealer := secrets.MakeSecretSealer()
 	err = sealer.LoadPublicKey([]byte(testPublicKey))
 	assert.Nil(t, err)
 
 	//seal the config
-	err = config.Seal(&sealer)
+	err = config.Seal(sealer)
 	assert.Nil(t, err)
 
 	//check sealed states
@@ -448,17 +450,100 @@ mail:
 	assert.Nil(t, err)
 
 	//unseal the sealed values and verify them
-	unsealer := secrets.SecretUnsealer{}
+	unsealer := secrets.MakeSecretUnsealer()
 	err = unsealer.LoadPrivateKey([]byte(testPrivateKey), "")
 	assert.Nil(t, err)
 
-	smtpPass, err := unsealer.UnsealSecret(config.Mail.Accounts[0].SMTP.Password.GetValue())
+	err = config.Unseal(unsealer)
 	assert.Nil(t, err)
-	assert.Equal(t, "it's a secret", smtpPass)
 
-	imapPass, err := unsealer.UnsealSecret(config.Mail.Accounts[0].IMAP.Password.GetValue())
+	assert.Equal(t, "it's a secret", config.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+
+	assert.Equal(t, "it's a secret too", config.Mail.Accounts[0].IMAP.Password.GetValue())
+	assert.False(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+
+}
+
+type MockSealer struct {
+}
+
+func (ms *MockSealer) LoadPublicKeyFromFile(filename string) error {
+	return nil
+}
+func (ms *MockSealer) LoadPublicKey(rawBytes []byte) error {
+	return nil
+}
+func (ms *MockSealer) ClearKeys() {
+	//do nothing
+}
+func (ms *MockSealer) GetMaximumSecretSize() (int, error) {
+	return 10, nil
+}
+func (ms *MockSealer) SealSecret(secretToSeal string) (string, error) {
+	return "", fmt.Errorf("mock sealer failed")
+}
+func (ms *MockSealer) SealSecretHolder(holder secrets.SecretHolder) {
+	holder.Seal(ms)
+}
+
+func TestSealUnsealFailure(t *testing.T) {
+	yamlData := `---
+mail:
+  accounts:
+  - name: test1
+    smtp:
+      sender_address: "example@example.com"
+      server_address: "smtp.example.com"	
+      port: 465
+      username: joeuser@example.com
+      password: "it's a secret"
+    imap:
+      server_address: "imap.example.com"
+      port: 993
+      username: janeuser@example.com
+      password: "sealed(+invalidseal==)"
+  send_limits: []`
+
+	yamldata := []byte(yamlData)
+	config, err := parseAndValidateConfig(yamldata)
 	assert.Nil(t, err)
-	assert.Equal(t, "it's a secret too", imapPass)
+
+	//check password states
+	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+	assert.Equal(t, "it's a secret", config.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.True(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+	assert.Equal(t, "sealed(+invalidseal==)", config.Mail.Accounts[0].IMAP.Password.GetValue())
+
+	//make a mock secret sealer so that the seal operation fails
+	sealer := &MockSealer{}
+
+	//seal the config
+	err = config.Seal(sealer)
+	assert.ErrorContains(t, err, "at path mail.accounts[0].SMTP.password")
+	assert.ErrorContains(t, err, "failed to seal secret: mock sealer failed")
+
+	//check password states
+	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+	assert.Equal(t, "it's a secret", config.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.True(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+	assert.Equal(t, "sealed(+invalidseal==)", config.Mail.Accounts[0].IMAP.Password.GetValue())
+
+	//because the test config has invalid sealed data, we can use the real unsealer in the test
+	//it will fail on the invalid data
+	unsealer := secrets.MakeSecretUnsealer()
+	unsealer.LoadPrivateKey([]byte(testPrivateKey), "")
+
+	//unseal the config
+	err = config.Unseal(unsealer)
+	assert.ErrorContains(t, err, "at path mail.accounts[0].IMAP.password")
+	assert.ErrorContains(t, err, "failed to unseal secret crypto/rsa: decryption error")
+
+	//check password states
+	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
+	assert.Equal(t, "it's a secret", config.Mail.Accounts[0].SMTP.Password.GetValue())
+	assert.True(t, config.Mail.Accounts[0].IMAP.Password.IsValueSealed())
+	assert.Equal(t, "sealed(+invalidseal==)", config.Mail.Accounts[0].IMAP.Password.GetValue())
 
 }
 

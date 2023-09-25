@@ -6,7 +6,7 @@ mail:
         server_address: "smtp.example.com"
         port: 465
         username: joeuser@example.com
-        password: sealed(+aaaaaa==)
+        password: it's a secret
       imap:
         server_address: "imap.example.com"
         port: 993
