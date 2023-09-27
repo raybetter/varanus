@@ -41,9 +41,13 @@ func (va varanusAppImpl) SealConfig(args *SealConfigArgs) error {
 	}
 
 	//seal the config
-	err = config.Seal(sealer)
+	sealResult, err := sealer.SealObject(config)
 	if err != nil {
 		return newApplicationError("Error while sealing the config: %w", err)
+	}
+	sealResult.Dump()
+	if len(sealResult.SealErrors) > 0 {
+		return newApplicationError("There were errors when sealing the config.  Check the output for details.")
 	}
 
 	//write the config out
@@ -107,25 +111,20 @@ func (va varanusAppImpl) CheckConfig(args *CheckConfigArgs) error {
 	}
 
 	//we can check the seals even if the unsealer is nil
-	sealCheckResult := config.CheckSeals(unsealer)
-	fmt.Printf("The configuration has %d sealed values.\n", sealCheckResult.SealedCount)
-	fmt.Printf("The configuration has %d unsealed values.\n", sealCheckResult.UnsealedCount)
+	sealCheckResult, err := secrets.CheckSealsOnObject(config, unsealer)
+	if err != nil {
+		return newApplicationError("Check operation failed unexpectedly: %w", err)
+	}
+	sealCheckResult.Dump()
 	if len(sealCheckResult.UnsealErrors) > 0 {
-		fmt.Println("The following errors occured when checking sealed values:")
-		for _, unsealError := range sealCheckResult.UnsealErrors {
-			fmt.Printf("  %s\n", unsealError)
-		}
-		// set the overallCheckOK because we can continue with checking the config even with
-		// seal errors
 		overallCheckOk = false
-	} else {
-		if unsealer == nil {
-			if sealCheckResult.SealedCount > 0 {
-				fmt.Println("The integrity of sealed values was not checked because no private key was provided.")
-			}
-		} else {
-			fmt.Println("The integrity of the sealed values was verified with the private key.")
+	}
+	if unsealer == nil {
+		if sealCheckResult.SealedCount > 0 {
+			fmt.Println("The integrity of sealed values was not checked because no private key was provided.")
 		}
+	} else {
+		fmt.Println("The integrity of the sealed values was verified with the private key.")
 	}
 
 	if overallCheckOk {
@@ -159,9 +158,13 @@ func (va varanusAppImpl) UnsealConfig(args *UnsealConfigArgs) error {
 	}
 
 	//unseal the config
-	err = config.Unseal(unsealer)
+	unsealResult, err := unsealer.UnsealObject(config)
 	if err != nil {
 		return newApplicationError("Error while unsealing the config: %w", err)
+	}
+	unsealResult.Dump()
+	if len(unsealResult.UnsealErrors) > 0 {
+		return newApplicationError("There were errors when unsealing the config.  Check the output for details.")
 	}
 
 	//write the config out

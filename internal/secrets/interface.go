@@ -1,18 +1,12 @@
 package secrets
 
-type SecretHolder interface {
-	Seal(sealer SecretSealer) error
-	Unseal(unsealer SecretUnsealer) error
-	CheckSeals(unsealer SecretUnsealer) SealCheckResult
-}
-
 type SecretSealer interface {
 	LoadPublicKeyFromFile(filename string) error
 	LoadPublicKey(rawBytes []byte) error
 	ClearKeys()
 	GetMaximumSecretSize() (int, error)
 	SealSecret(secretToSeal string) (string, error)
-	SealSecretHolder(holder SecretHolder)
+	SealObject(objectToSeal interface{}) (SealResult, error)
 }
 
 type SecretUnsealer interface {
@@ -20,7 +14,18 @@ type SecretUnsealer interface {
 	LoadPrivateKey(rawBytes []byte, passphrase string) error
 	ClearKeys()
 	UnsealSecret(cipherText string) (string, error)
-	UnsealSecretHolder(holder SecretHolder)
+	UnsealObject(objectToUnseal interface{}) (UnsealResult, error)
+	CheckSeals(objectToCheck interface{}) (SealCheckResult, error)
+}
+
+// CreateUnsafeSealedItem creates a sealed item from raw data with no checks -- primarily used for testing.
+func CreateUnsafeSealedItem(value string, isSealed bool) SealedItem {
+	return SealedItem{value, isSealed}
+}
+
+func CreateSealedItem(value string) SealedItem {
+	processedValue, isSealed := processSealedItemString(value)
+	return SealedItem{processedValue, isSealed}
 }
 
 func MakeSecretSealer() SecretSealer {

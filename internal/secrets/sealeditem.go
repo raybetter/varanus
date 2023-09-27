@@ -16,16 +16,6 @@ func wrapSealedString(value string) string {
 	return fmt.Sprintf("sealed(%s)", value)
 }
 
-// CreateUnsafeSealedItem creates a sealed item from raw data with no checks -- primarily used for testing.
-func CreateUnsafeSealedItem(value string, isSealed bool) SealedItem {
-	return SealedItem{value, isSealed}
-}
-
-func CreateSealedItem(value string) SealedItem {
-	processedValue, isSealed := processSealedItemString(value)
-	return SealedItem{processedValue, isSealed}
-}
-
 func processSealedItemString(value string) (string, bool) {
 	matchVals := sealedWrapperRegex.FindStringSubmatch(value)
 	if matchVals == nil {
@@ -42,6 +32,11 @@ type SealedItem struct {
 	isSealed bool
 }
 
+func createSealedItemImpl(value string) SealedItem {
+	processedValue, isSealed := processSealedItemString(value)
+	return SealedItem{processedValue, isSealed}
+}
+
 func (si SealedItem) IsValueSealed() bool {
 	return si.isSealed
 }
@@ -53,18 +48,25 @@ func (si SealedItem) GetValue() string {
 	return si.value
 }
 
-// implement validation.Validatable
-func (si SealedItem) Validate(vp *validation.ValidationProcess) error {
+func (si SealedItem) checkRawValue() error {
 	if si.isSealed {
 		if !SealedValueRegex.MatchString(si.value) {
-			vp.AddValidationError(si, "value does not match the expected format for an encrypted, encoded string")
+			return fmt.Errorf("value does not match the expected format for an encrypted, encoded string")
 		}
 	} else {
 		//unsealed cannot be empty
 		if len(si.value) == 0 {
-			vp.AddValidationError(si, "SealedItem with an unsealed value should not be empty")
+			return fmt.Errorf("SealedItem with an unsealed value should not be empty")
 		}
+	}
+	return nil
+}
 
+// implement validation.Validatable
+func (si SealedItem) Validate(vp *validation.ValidationProcess) error {
+	err := si.checkRawValue()
+	if err != nil {
+		vp.AddValidationError(si, err.Error())
 	}
 	return nil
 }
@@ -99,22 +101,21 @@ func (si *SealedItem) Unseal(unsealer SecretUnsealer) error {
 	return nil
 }
 
-func (si *SealedItem) CheckSeals(unsealer SecretUnsealer) SealCheckResult {
-	result := SealCheckResult{}
-	if si.isSealed {
-		result.SealedCount = 1
+// CheckSeal returns an error if the item is sealed and cannot be unsealed by unsealer.  If the
+// unsealer is nil or the item is not sealed, then nothing is returned.
+func (si SealedItem) Check(unsealer SecretUnsealer) error {
 
-		if unsealer != nil {
+	if unsealer != nil {
+		if si.isSealed {
 			//check that we can unseal the secret
 			_, err := unsealer.UnsealSecret(si.value)
-			if err != nil {
-				result.UnsealErrors = append(result.UnsealErrors, err)
-			}
+			return err
 		}
 	} else {
-		result.UnsealedCount = 1
+		//if no unsealer provided, fall back to raw item checks
+		return si.checkRawValue()
 	}
-	return result
+	return nil
 }
 
 func (si SealedItem) String() string {

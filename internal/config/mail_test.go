@@ -50,14 +50,14 @@ func TestSmtpConfigValidation(t *testing.T) {
 		{
 			Mutator:         func(c *SMTPConfig) { c.Password = secrets.CreateUnsafeSealedItem("  ", true) },
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: secrets.SealedItem{},
+			ErrorObjectType: secrets.CreateSealedItem(""),
 		},
 		{
 			Mutator: func(c *SMTPConfig) {
 				c.Password = secrets.CreateUnsafeSealedItem("foo bar is not an encoded password", true)
 			},
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: secrets.SealedItem{},
+			ErrorObjectType: secrets.CreateSealedItem(""),
 		},
 	}
 
@@ -125,14 +125,14 @@ func TestIMAPConfigValidation(t *testing.T) {
 		{
 			Mutator:         func(c *IMAPConfig) { c.Password = secrets.CreateUnsafeSealedItem("", false) },
 			Error:           "SealedItem with an unsealed value should not be empty",
-			ErrorObjectType: secrets.SealedItem{},
+			ErrorObjectType: secrets.CreateSealedItem(""),
 		},
 		{
 			Mutator: func(c *IMAPConfig) {
 				c.Password = secrets.CreateUnsafeSealedItem("sealed(f0o bar not a valid encoded password)", true)
 			},
 			Error:           "value does not match the expected format for an encrypted, encoded string",
-			ErrorObjectType: secrets.SealedItem{},
+			ErrorObjectType: secrets.CreateSealedItem(""),
 		},
 	}
 

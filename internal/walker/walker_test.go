@@ -3,6 +3,7 @@ package walker
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,10 +12,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type SpecialObjectInterface interface {
-	AddValue(string)
-	GetValues() string
-}
+//**************************************************************************************************
+//**************************************************************************************************
+// Heirarchical evaluation of struct needle
+//**************************************************************************************************
+//**************************************************************************************************
 
 type SpecialObject struct {
 	values []string
@@ -84,6 +86,15 @@ func loadTestObject(t *testing.T, yamlStr string) *TopObject {
 	return object
 }
 
+func indexOf(haystack [][]string, needle []string) int {
+	for index, value := range haystack {
+		if slices.Equal(value, needle) {
+			return index
+		}
+	}
+	return -1
+}
+
 const yamlStr = `---
 field_a:
   str_val: string at field_a.str_val
@@ -122,30 +133,57 @@ field_c:
 
 func TestWalkerMutable(t *testing.T) {
 
-	expectedCallbackSequence := []string{
-		"a1,a2,a3",
-		"ba1-1,ba1-2",
-		"ba2-1,ba2-2",
-		"ba-foo-1",
-		"ba-bar-1",
-		"cd-so1-1,cd-so1-2,cd-so1-3",
-		"cd-so2-1,cd-so2-2,cd-so2-3",
-		"cd-so3-1,cd-so3-2,cd-so3-3",
-		"ce-so-1,ce-so-2,ce-so-3",
+	//two possible expected sequences because the map values can be read in any order
+	expectedCallbackSequence := [][]string{
+		{
+			"a1,a2,a3",
+			"ba1-1,ba1-2",
+			"ba2-1,ba2-2",
+			"ba-foo-1",
+			"ba-bar-1",
+			"cd-so1-1,cd-so1-2,cd-so1-3",
+			"cd-so2-1,cd-so2-2,cd-so2-3",
+			"cd-so3-1,cd-so3-2,cd-so3-3",
+			"ce-so-1,ce-so-2,ce-so-3",
+		},
+		{
+			"a1,a2,a3",
+			"ba1-1,ba1-2",
+			"ba2-1,ba2-2",
+			"ba-bar-1",
+			"ba-foo-1",
+			"cd-so1-1,cd-so1-2,cd-so1-3",
+			"cd-so2-1,cd-so2-2,cd-so2-3",
+			"cd-so3-1,cd-so3-2,cd-so3-3",
+			"ce-so-1,ce-so-2,ce-so-3",
+		},
 	}
 
-	expectedPathSequence := []string{
+	expectedPathSequence := [][]string{
 		// note that this and the next few are SOVal because that's the struct field name and there
 		// is no YAML tag to override it.
-		"field_a.SOVal",
-		"field_b.a_list[0].SOVal",
-		"field_b.a_list[1].SOVal",
-		"field_b.a_map[foo].SOVal",
-		"field_b.a_map[bar].SOVal",
-		"field_c.field_d.so_val_list[0]",
-		"field_c.field_d.so_val_list[1]",
-		"field_c.field_d.so_val_list[2]",
-		"field_c.field_e.so_val",
+		{
+			"field_a.SOVal",
+			"field_b.a_list[0].SOVal",
+			"field_b.a_list[1].SOVal",
+			"field_b.a_map[foo].SOVal",
+			"field_b.a_map[bar].SOVal",
+			"field_c.field_d.so_val_list[0]",
+			"field_c.field_d.so_val_list[1]",
+			"field_c.field_d.so_val_list[2]",
+			"field_c.field_e.so_val",
+		},
+		{
+			"field_a.SOVal",
+			"field_b.a_list[0].SOVal",
+			"field_b.a_list[1].SOVal",
+			"field_b.a_map[bar].SOVal",
+			"field_b.a_map[foo].SOVal",
+			"field_c.field_d.so_val_list[0]",
+			"field_c.field_d.so_val_list[1]",
+			"field_c.field_d.so_val_list[2]",
+			"field_c.field_e.so_val",
+		},
 	}
 
 	callbackSequence := []string{}
@@ -176,8 +214,11 @@ func TestWalkerMutable(t *testing.T) {
 	assert.Nil(t, err)
 
 	//check results
-	assert.Equal(t, expectedCallbackSequence, callbackSequence)
-	assert.Equal(t, expectedPathSequence, pathSequence)
+	assert.Contains(t, expectedCallbackSequence, callbackSequence)
+	assert.Contains(t, expectedPathSequence, pathSequence)
+	assert.Equal(t,
+		indexOf(expectedCallbackSequence, callbackSequence),
+		indexOf(expectedPathSequence, pathSequence))
 
 	// check for modified values
 	hasFinalValue := func(so *SpecialObject, expected string) {
@@ -207,30 +248,59 @@ func TestWalkerMutable(t *testing.T) {
 
 func TestWalkerImmutable(t *testing.T) {
 
-	expectedCallbackSequence := []string{
-		"a1,a2,a3",
-		"ba1-1,ba1-2",
-		"ba2-1,ba2-2",
-		"ba-foo-1",
-		"ba-bar-1",
-		"cd-so1-1,cd-so1-2,cd-so1-3",
-		"cd-so2-1,cd-so2-2,cd-so2-3",
-		"cd-so3-1,cd-so3-2,cd-so3-3",
-		"ce-so-1,ce-so-2,ce-so-3",
+	//two possible expected sequences because the map values can be read in any order
+	expectedCallbackSequence := [][]string{
+		{
+			"a1,a2,a3",
+			"ba1-1,ba1-2",
+			"ba2-1,ba2-2",
+			"ba-foo-1",
+			"ba-bar-1",
+			"cd-so1-1,cd-so1-2,cd-so1-3",
+			"cd-so2-1,cd-so2-2,cd-so2-3",
+			"cd-so3-1,cd-so3-2,cd-so3-3",
+			"ce-so-1,ce-so-2,ce-so-3",
+		},
+		{
+			"a1,a2,a3",
+			"ba1-1,ba1-2",
+			"ba2-1,ba2-2",
+			"ba-bar-1",
+			"ba-foo-1",
+			"cd-so1-1,cd-so1-2,cd-so1-3",
+			"cd-so2-1,cd-so2-2,cd-so2-3",
+			"cd-so3-1,cd-so3-2,cd-so3-3",
+			"ce-so-1,ce-so-2,ce-so-3",
+		},
 	}
 
-	expectedPathSequence := []string{
-		// note that this and the next few are SOVal because that's the struct field name and there
-		// is no YAML tag to override it.
-		"field_a.SOVal",
-		"field_b.a_list[0].SOVal",
-		"field_b.a_list[1].SOVal",
-		"field_b.a_map[foo].SOVal",
-		"field_b.a_map[bar].SOVal",
-		"field_c.field_d.so_val_list[0]",
-		"field_c.field_d.so_val_list[1]",
-		"field_c.field_d.so_val_list[2]",
-		"field_c.field_e.so_val",
+	expectedPathSequence := [][]string{
+		{
+			// note that this and the next few are SOVal because that's the struct field name and there
+			// is no YAML tag to override it.
+			"field_a.SOVal",
+			"field_b.a_list[0].SOVal",
+			"field_b.a_list[1].SOVal",
+			"field_b.a_map[foo].SOVal",
+			"field_b.a_map[bar].SOVal",
+			"field_c.field_d.so_val_list[0]",
+			"field_c.field_d.so_val_list[1]",
+			"field_c.field_d.so_val_list[2]",
+			"field_c.field_e.so_val",
+		},
+		{
+			// note that this and the next few are SOVal because that's the struct field name and there
+			// is no YAML tag to override it.
+			"field_a.SOVal",
+			"field_b.a_list[0].SOVal",
+			"field_b.a_list[1].SOVal",
+			"field_b.a_map[bar].SOVal",
+			"field_b.a_map[foo].SOVal",
+			"field_c.field_d.so_val_list[0]",
+			"field_c.field_d.so_val_list[1]",
+			"field_c.field_d.so_val_list[2]",
+			"field_c.field_e.so_val",
+		},
 	}
 
 	callbackSequence := []string{}
@@ -262,8 +332,11 @@ func TestWalkerImmutable(t *testing.T) {
 	assert.Nil(t, err)
 
 	//check results
-	assert.Equal(t, expectedCallbackSequence, callbackSequence)
-	assert.Equal(t, expectedPathSequence, pathSequence)
+	assert.Contains(t, expectedCallbackSequence, callbackSequence)
+	assert.Contains(t, expectedPathSequence, pathSequence)
+	assert.Equal(t,
+		indexOf(expectedCallbackSequence, callbackSequence),
+		indexOf(expectedPathSequence, pathSequence))
 
 	// check for modified values
 	hasNoFinalValue := func(so *SpecialObject, expected string) {
@@ -309,34 +382,71 @@ func TestWalkerMutableCallWithImmutableObject(t *testing.T) {
 
 func TestWalkerCallbackErrors(t *testing.T) {
 
+	//this test hits each of the callbacks in sequence to ensure the error return through all the
+	//different types in the walk
+
+	targetPath := ""
+
 	//setup the callback for the test
 	testCallback := func(needle interface{}, path string) error {
-		return fmt.Errorf("test error")
+		if path == targetPath {
+			return fmt.Errorf("test error")
+		}
+		return nil
 	}
 
-	//load the config object for the test
-	object := loadTestObject(t, yamlStr)
-
-	{
-		//see the propagating error in WalkObjectMutable
-		err := WalkObjectMutable(object, reflect.TypeOf(SpecialObject{}), testCallback)
-		assert.ErrorContains(t, err, "callback error at path")
-		assert.ErrorContains(t, err, ": test error")
+	targetPaths := []string{
+		"field_a.SOVal",
+		"field_b.a_list[0].SOVal",
+		"field_b.a_list[1].SOVal",
+		"field_b.a_map[foo].SOVal",
+		"field_b.a_map[bar].SOVal",
+		"field_c.field_d.so_val_list[0]",
+		"field_c.field_d.so_val_list[1]",
+		"field_c.field_d.so_val_list[2]",
+		"field_c.field_e.so_val",
 	}
 
-	{
-		//see the propagating error in WalkObjectImmutable
-		err := WalkObjectImmutable(*object, reflect.TypeOf(SpecialObject{}), testCallback)
-		assert.ErrorContains(t, err, "callback error at path")
-		assert.ErrorContains(t, err, ": test error")
+	for _, nextPath := range targetPaths {
+		targetPath = nextPath
+
+		//load the config object for the test
+		object := loadTestObject(t, yamlStr)
+
+		{
+			//see the propagating error in WalkObjectMutable
+			err := WalkObjectMutable(object, reflect.TypeOf(SpecialObject{}), testCallback)
+			assert.ErrorContains(t, err, "callback error at path="+nextPath)
+			assert.ErrorContains(t, err, ": test error")
+		}
+
+		{
+			//see the propagating error in WalkObjectImmutable
+			err := WalkObjectImmutable(*object, reflect.TypeOf(SpecialObject{}), testCallback)
+			assert.ErrorContains(t, err, "callback error at path="+nextPath)
+			assert.ErrorContains(t, err, ": test error")
+		}
+
 	}
 
+}
+
+//**************************************************************************************************
+//**************************************************************************************************
+// Basic interface needle
+//**************************************************************************************************
+//**************************************************************************************************
+
+type SpecialObjectInterface interface {
+	GetValues() string
 }
 
 type InterfaceContainer struct {
 	SOI1 SpecialObjectInterface
 	SOI2 SpecialObjectInterface
 	SOI3 SpecialObjectInterface
+	OSO1 OtherSpecialObject
+	OSO2 *OtherSpecialObject
 }
 
 type OtherSpecialObject struct {
@@ -355,22 +465,30 @@ func TestInterfaceFields(t *testing.T) {
 	so1 := SpecialObject{[]string{"foo1", "bar1"}}
 	so2 := &SpecialObject{[]string{"foo2", "bar2"}}
 	oso3 := OtherSpecialObject{[]string{"foo3", "bar3"}}
+	oso1 := OtherSpecialObject{[]string{"foo-oso1", "bar-oso1"}}
+	oso2 := OtherSpecialObject{[]string{"foo-oso2", "bar-oso2"}}
 
 	ic := InterfaceContainer{
 		SOI1: &so1,
 		SOI2: so2,
 		SOI3: &oso3,
+		OSO1: oso1,
+		OSO2: &oso2,
 	}
 
 	expectedCallbackSequence := []string{
 		"foo1,bar1",
 		"foo2,bar2",
 		"oso::foo3,bar3",
+		"oso::foo-oso1,bar-oso1",
+		"oso::foo-oso2,bar-oso2",
 	}
 	expectedPathSequence := []string{
 		"SOI1",
 		"SOI2",
 		"SOI3",
+		"OSO1",
+		"OSO2",
 	}
 
 	callbackSequence := []string{}
@@ -394,5 +512,184 @@ func TestInterfaceFields(t *testing.T) {
 
 	//check results
 	assert.Equal(t, expectedCallbackSequence, callbackSequence)
+	assert.Equal(t, expectedPathSequence, pathSequence)
+}
+
+//**************************************************************************************************
+//**************************************************************************************************
+// Heirarchical evaluation of interface needle
+//**************************************************************************************************
+//**************************************************************************************************
+
+type Checkable interface {
+	Check() string
+}
+
+type TopCheckable struct {
+	Middle1    MiddleCheckable
+	Middle2    MiddleCheckable
+	Middle3    MiddleUncheckable
+	checkValue string
+}
+
+func (c TopCheckable) Check() string {
+	return c.checkValue
+}
+
+type MiddleCheckable struct {
+	Bottom1    BottomCheckable
+	Bottom2    BottomUncheckable
+	checkValue string
+}
+
+func (c MiddleCheckable) Check() string {
+	return c.checkValue
+}
+
+type MiddleUncheckable struct {
+	Bottom1 BottomCheckable
+	Bottom2 BottomUncheckable
+}
+
+type BottomCheckable struct {
+	checkValue string
+}
+
+func (c BottomCheckable) Check() string {
+	return c.checkValue
+}
+
+type BottomUncheckable struct {
+}
+
+func TestHeirarchicalInterfaceNeedleImmutable(t *testing.T) {
+	top := TopCheckable{
+		Middle1: MiddleCheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 11",
+			},
+			Bottom2:    BottomUncheckable{},
+			checkValue: "middle 1",
+		},
+		Middle2: MiddleCheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 21",
+			},
+			Bottom2:    BottomUncheckable{},
+			checkValue: "middle 2",
+		},
+		Middle3: MiddleUncheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 31",
+			},
+			Bottom2: BottomUncheckable{},
+		},
+		checkValue: "top",
+	}
+
+	expectedCheckSequence := []string{
+		"top",
+		"middle 1",
+		"bottom 11",
+		"middle 2",
+		"bottom 21",
+		"bottom 31",
+	}
+	expectedPathSequence := []string{
+		"",
+		"Middle1",
+		"Middle1.Bottom1",
+		"Middle2",
+		"Middle2.Bottom1",
+		"Middle3.Bottom1",
+	}
+
+	callbackSequence := []string{}
+	pathSequence := []string{}
+
+	//setup the callback for the test
+	testCallback := func(needle interface{}, path string) error {
+		pathSequence = append(pathSequence, path)
+
+		val, ok := needle.(Checkable)
+		require.True(t, ok)
+		callbackSequence = append(callbackSequence, val.Check())
+
+		return nil
+	}
+
+	checkableType := reflect.TypeOf((*Checkable)(nil)).Elem()
+
+	err := WalkObjectImmutable(top, checkableType, testCallback)
+	assert.Nil(t, err)
+
+	//check results
+	assert.Equal(t, expectedCheckSequence, callbackSequence)
+	assert.Equal(t, expectedPathSequence, pathSequence)
+}
+
+func TestHeirarchicalInterfaceNeedleMutable(t *testing.T) {
+	top := TopCheckable{
+		Middle1: MiddleCheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 11",
+			},
+			Bottom2:    BottomUncheckable{},
+			checkValue: "middle 1",
+		},
+		Middle2: MiddleCheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 21",
+			},
+			Bottom2:    BottomUncheckable{},
+			checkValue: "middle 2",
+		},
+		Middle3: MiddleUncheckable{
+			Bottom1: BottomCheckable{
+				checkValue: "bottom 31",
+			},
+			Bottom2: BottomUncheckable{},
+		},
+		checkValue: "top",
+	}
+
+	expectedCheckSequence := []string{
+		"top",
+		"middle 1",
+		"bottom 11",
+		"middle 2",
+		"bottom 21",
+		"bottom 31",
+	}
+	expectedPathSequence := []string{
+		"",
+		"Middle1",
+		"Middle1.Bottom1",
+		"Middle2",
+		"Middle2.Bottom1",
+		"Middle3.Bottom1",
+	}
+
+	callbackSequence := []string{}
+	pathSequence := []string{}
+
+	//setup the callback for the test
+	testCallback := func(needle interface{}, path string) error {
+		pathSequence = append(pathSequence, path)
+
+		val, ok := needle.(Checkable)
+		require.True(t, ok)
+		callbackSequence = append(callbackSequence, val.Check())
+
+		return nil
+	}
+
+	checkableType := reflect.TypeOf((*Checkable)(nil)).Elem()
+
+	err := WalkObjectMutable(&top, checkableType, testCallback)
+	assert.Nil(t, err)
+
+	//check results
+	assert.Equal(t, expectedCheckSequence, callbackSequence)
 	assert.Equal(t, expectedPathSequence, pathSequence)
 }

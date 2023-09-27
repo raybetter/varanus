@@ -12,7 +12,7 @@ import (
 func TestSealedItemSealed(t *testing.T) {
 
 	//item is already sealed
-	si := CreateSealedItem("sealed(+abcdef+jk==)")
+	si := createSealedItemImpl("sealed(+abcdef+jk==)")
 
 	assert.Equal(t, true, si.IsValueSealed())
 	assert.Equal(t, "sealed(+abcdef+jk==)", si.GetValue())
@@ -43,7 +43,8 @@ func TestSealedItemSealed(t *testing.T) {
 
 func TestSealedItemUnsealed(t *testing.T) {
 	//item is not sealed
-	si := CreateSealedItem("some text")
+
+	si := createSealedItemImpl("some text")
 
 	assert.Equal(t, false, si.IsValueSealed())
 	assert.Equal(t, "some text", si.GetValue())
@@ -77,14 +78,14 @@ func TestUnsafeCreation(t *testing.T) {
 	{
 		//nominal unsealed case
 		si := CreateUnsafeSealedItem("foo", false)
-		assert.Equal(t, false, si.isSealed)
-		assert.Equal(t, "foo", si.value)
+		assert.Equal(t, false, si.IsValueSealed())
+		assert.Equal(t, "foo", si.GetValue())
 	}
 	{
 		//nominal sealed case
 		si := CreateUnsafeSealedItem("foo", true)
-		assert.Equal(t, true, si.isSealed)
-		assert.Equal(t, "foo", si.value)
+		assert.Equal(t, true, si.IsValueSealed())
+		assert.Equal(t, "sealed(foo)", si.GetValue())
 	}
 }
 
@@ -195,10 +196,8 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 
 	{
 		//check the item with no key
-		sealCheckResult := si.CheckSeals(nil)
-		assert.Equal(t, 1, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 0, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+		err := si.Check(nil)
+		assert.Nil(t, err)
 	}
 
 	//get a sealer to seal it
@@ -223,19 +222,17 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 
 	{
 		//check the sealed item with no key
-		sealCheckResult := si.CheckSeals(nil)
-		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 1, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+		err := si.Check(nil)
+		assert.Nil(t, err)
 	}
 
 	//a second sealing should succeed but not change state
-	oldValue := si.value
+	oldValue := si.GetValue()
 	err = si.Seal(sealer)
 	assert.Nil(t, err)
 
 	assert.Equal(t, true, si.IsValueSealed())
-	assert.Equal(t, oldValue, si.value)
+	assert.Equal(t, oldValue, si.GetValue())
 
 	//make an unsealer with a private key
 	unsealer := MakeSecretUnsealer()
@@ -243,10 +240,8 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 
 	{
 		//check the sealed item with the key
-		sealCheckResult := si.CheckSeals(unsealer)
-		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 1, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+		err := si.Check(unsealer)
+		assert.Nil(t, err)
 	}
 
 	//now unseal it
@@ -258,10 +253,8 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 
 	{
 		//check the item with the key
-		sealCheckResult := si.CheckSeals(unsealer)
-		assert.Equal(t, 1, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 0, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+		err := si.Check(unsealer)
+		assert.Nil(t, err)
 	}
 
 	//now unseal it again -- should have no error and no effect
@@ -278,7 +271,7 @@ func TestSealedItemSealAndUnsealeWithErrors(t *testing.T) {
 	secretValue := "unsealed value -- it's a secret!"
 
 	//make an unsealed value
-	si := CreateSealedItem(secretValue)
+	si := createSealedItemImpl(secretValue)
 
 	assert.Equal(t, false, si.IsValueSealed())
 
@@ -309,11 +302,8 @@ func TestSealedItemSealAndUnsealeWithErrors(t *testing.T) {
 
 	{
 		//check the sealed item with the key
-		sealCheckResult := si.CheckSeals(unsealer)
-		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 1, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 1)
-		assert.ErrorContains(t, sealCheckResult.UnsealErrors[0], "crypto/rsa: decryption error")
+		err := si.Check(unsealer)
+		assert.ErrorContains(t, err, "crypto/rsa: decryption error")
 	}
 
 	//now try to unseal it
@@ -326,11 +316,8 @@ func TestSealedItemSealAndUnsealeWithErrors(t *testing.T) {
 
 	{
 		//check the item with the key again
-		sealCheckResult := si.CheckSeals(unsealer)
-		assert.Equal(t, 0, sealCheckResult.UnsealedCount)
-		assert.Equal(t, 1, sealCheckResult.SealedCount)
-		assert.Len(t, sealCheckResult.UnsealErrors, 1)
-		assert.ErrorContains(t, sealCheckResult.UnsealErrors[0], "crypto/rsa: decryption error")
+		err := si.Check(unsealer)
+		assert.ErrorContains(t, err, "crypto/rsa: decryption error")
 	}
 
 }

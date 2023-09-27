@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var randomRegex = regexp.MustCompile(`^[A-Za-z0-9 ~!@#$%^&*()-=_+[\]{};':",.<>/?\x60|\\]+$`)
@@ -393,17 +394,7 @@ func TestInvalidCiphertext(t *testing.T) {
 
 // MockSecretHolder provides a SecretHolder interface wrapper around a sealed item for testing
 type MockSecretHolder struct {
-	si SealedItem
-}
-
-func (msh *MockSecretHolder) Seal(sealer SecretSealer) error {
-	return msh.si.Seal(sealer)
-}
-func (msh *MockSecretHolder) Unseal(unsealer SecretUnsealer) error {
-	return msh.si.Unseal(unsealer)
-}
-func (msh *MockSecretHolder) CheckSeals(unsealer SecretUnsealer) SealCheckResult {
-	return msh.si.CheckSeals(unsealer)
+	SI SealedItem
 }
 
 func TestSecretHolderMethods(t *testing.T) {
@@ -421,43 +412,46 @@ func TestSecretHolderMethods(t *testing.T) {
 	//make a mock secret holder
 	secretValue := "it's a secret."
 	msh := MockSecretHolder{
-		si: CreateSealedItem(secretValue),
+		SI: CreateSealedItem(secretValue),
 	}
 
 	//check the initial, unsealed state
 	{
-		check := msh.CheckSeals(&unsealer)
+		check, err := unsealer.CheckSeals(msh)
+		assert.Nil(t, err)
 		assert.Equal(t, 0, check.SealedCount)
 		assert.Equal(t, 1, check.UnsealedCount)
 		assert.Len(t, check.UnsealErrors, 0)
 	}
 
 	//seal and check
-	sealer.SealSecretHolder(&msh)
 	{
-		check := msh.CheckSeals(&unsealer)
-		assert.Equal(t, 1, check.SealedCount)
-		assert.Equal(t, 0, check.UnsealedCount)
-		assert.Len(t, check.UnsealErrors, 0)
+		sealResult, err := sealer.SealObject(&msh)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, sealResult.NumberSealed)
+		assert.Equal(t, 1, sealResult.TotalSealedCount)
+		assert.Equal(t, 0, sealResult.TotalUnsealedCount)
+		assert.Len(t, sealResult.SealErrors, 0)
 	}
 
 	//unseal and check
-	unsealer.UnsealSecretHolder(&msh)
 	{
-		check := msh.CheckSeals(&unsealer)
-		assert.Equal(t, 0, check.SealedCount)
-		assert.Equal(t, 1, check.UnsealedCount)
-		assert.Len(t, check.UnsealErrors, 0)
+		unsealResult, err := unsealer.UnsealObject(&msh)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, unsealResult.TotalSealedCount)
+		assert.Equal(t, 1, unsealResult.TotalUnsealedCount)
+		assert.Equal(t, 1, unsealResult.NumberUnsealed)
+		assert.Len(t, unsealResult.UnsealErrors, 0)
 	}
 
 	//corrupt and check
-	msh.si.isSealed = true
-	msh.si.value = "+aaaaaa=="
+	msh.SI = CreateUnsafeSealedItem("+aaaaaa==", true)
 	{
-		check := msh.CheckSeals(&unsealer)
+		check, err := unsealer.CheckSeals(msh)
+		assert.Nil(t, err)
 		assert.Equal(t, 1, check.SealedCount)
 		assert.Equal(t, 0, check.UnsealedCount)
-		assert.Len(t, check.UnsealErrors, 1)
+		require.Len(t, check.UnsealErrors, 1)
 		assert.ErrorContains(t, check.UnsealErrors[0], "crypto/rsa: decryption error")
 	}
 

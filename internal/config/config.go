@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"varanus/internal/secrets"
 	"varanus/internal/validation"
 
 	"gopkg.in/yaml.v3"
@@ -111,16 +110,4 @@ func (c *VaranusConfig) Validate(vp *validation.ValidationProcess) error {
 	}
 
 	return nil
-}
-
-func (c *VaranusConfig) Seal(sealer secrets.SecretSealer) error {
-	return AddTokenToPathError(c.Mail.Seal(sealer), "mail")
-}
-
-func (c *VaranusConfig) Unseal(unsealer secrets.SecretUnsealer) error {
-	return AddTokenToPathError(c.Mail.Unseal(unsealer), "mail")
-}
-
-func (c *VaranusConfig) CheckSeals(unsealer secrets.SecretUnsealer) secrets.SealCheckResult {
-	return c.Mail.CheckSeals(unsealer)
 }

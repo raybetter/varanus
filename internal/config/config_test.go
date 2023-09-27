@@ -434,8 +434,12 @@ mail:
 	assert.Nil(t, err)
 
 	//seal the config
-	err = config.Seal(sealer)
+	sealResult, err := sealer.SealObject(config)
 	assert.Nil(t, err)
+	assert.Equal(t, 2, sealResult.NumberSealed)
+	assert.Equal(t, 2, sealResult.TotalSealedCount)
+	assert.Equal(t, 0, sealResult.TotalUnsealedCount)
+	assert.Len(t, sealResult.SealErrors, 0)
 
 	//check sealed states
 	assert.True(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
@@ -454,8 +458,12 @@ mail:
 	err = unsealer.LoadPrivateKey([]byte(testPrivateKey), "")
 	assert.Nil(t, err)
 
-	err = config.Unseal(unsealer)
+	unsealResult, err := unsealer.UnsealObject(config)
 	assert.Nil(t, err)
+	assert.Equal(t, 2, unsealResult.NumberUnsealed)
+	assert.Equal(t, 0, unsealResult.TotalSealedCount)
+	assert.Equal(t, 2, unsealResult.TotalUnsealedCount)
+	assert.Len(t, unsealResult.UnsealErrors, 0)
 
 	assert.Equal(t, "it's a secret", config.Mail.Accounts[0].SMTP.Password.GetValue())
 	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
@@ -483,8 +491,8 @@ func (ms *MockSealer) GetMaximumSecretSize() (int, error) {
 func (ms *MockSealer) SealSecret(secretToSeal string) (string, error) {
 	return "", fmt.Errorf("mock sealer failed")
 }
-func (ms *MockSealer) SealSecretHolder(holder secrets.SecretHolder) {
-	holder.Seal(ms)
+func (ms *MockSealer) SealObject(objectToSeal interface{}) (secrets.SealResult, error) {
+	return secrets.SealObject(objectToSeal, ms)
 }
 
 func TestSealUnsealFailure(t *testing.T) {
@@ -519,9 +527,14 @@ mail:
 	sealer := &MockSealer{}
 
 	//seal the config
-	err = config.Seal(sealer)
-	assert.ErrorContains(t, err, "at path mail.accounts[0].SMTP.password")
-	assert.ErrorContains(t, err, "failed to seal secret: mock sealer failed")
+	sealResult, err := sealer.SealObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, sealResult.NumberSealed)
+	assert.Equal(t, 1, sealResult.TotalSealedCount)
+	assert.Equal(t, 1, sealResult.TotalUnsealedCount)
+	assert.Len(t, sealResult.SealErrors, 1)
+	assert.ErrorContains(t, sealResult.SealErrors[0], "at path mail.accounts[0].SMTP.password")
+	assert.ErrorContains(t, sealResult.SealErrors[0], "failed to seal secret: mock sealer failed")
 
 	//check password states
 	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())
@@ -535,9 +548,14 @@ mail:
 	unsealer.LoadPrivateKey([]byte(testPrivateKey), "")
 
 	//unseal the config
-	err = config.Unseal(unsealer)
-	assert.ErrorContains(t, err, "at path mail.accounts[0].IMAP.password")
-	assert.ErrorContains(t, err, "failed to unseal secret crypto/rsa: decryption error")
+	unsealResult, err := unsealer.UnsealObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, unsealResult.NumberUnsealed)
+	assert.Equal(t, 1, unsealResult.TotalSealedCount)
+	assert.Equal(t, 1, unsealResult.TotalUnsealedCount)
+	assert.Len(t, unsealResult.UnsealErrors, 1)
+	assert.ErrorContains(t, unsealResult.UnsealErrors[0], "at path mail.accounts[0].IMAP.password")
+	assert.ErrorContains(t, unsealResult.UnsealErrors[0], "failed to unseal secret crypto/rsa: decryption error")
 
 	//check password states
 	assert.False(t, config.Mail.Accounts[0].SMTP.Password.IsValueSealed())

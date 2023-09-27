@@ -15,14 +15,14 @@ func getYamlNameFromTag(tag reflect.StructTag) string {
 	return tokens[0]
 }
 
-func getFieldPathName(fieldIndex int, targetType reflect.Type, targetValue reflect.Value) string {
-	yamlString := getYamlNameFromTag(targetType.Field(fieldIndex).Tag)
+func getFieldPathName(field reflect.StructField, currentType reflect.Type, currentValue reflect.Value) string {
+	yamlString := getYamlNameFromTag(field.Tag)
 	if yamlString != "" {
 		return yamlString
 	}
 	//TODO support JSON, other field specs
 	//default to the field name if no other name matchs
-	return targetType.Field(fieldIndex).Name
+	return field.Name
 }
 
 func addFieldToPath(path string, field string) string {
@@ -74,12 +74,25 @@ func WalkObjectImmutable(
 	return walkObjectImplementation(haystack, needle, callback, false)
 }
 
+func isNeedleType(currentType reflect.Type, currentValue reflect.Value, needleType reflect.Type, isMutable bool) bool {
+	if currentType == needleType {
+		return true
+	}
+	if needleType.Kind() == reflect.Interface {
+		//for interface types, try testing if the value implements the interface
+		if currentType.Implements(needleType) {
+			return true
+		}
+	}
+	return false
+}
+
 // walkObjectImplementation provides the flow for both the immutable and mutable walk calls.
 // Since the logic is complex and similar for the two cases, it's easier to maintain on
 // implementation and switch behaviors on isMutable.
 func walkObjectImplementation(
 	haystack interface{},
-	needle reflect.Type,
+	needleType reflect.Type,
 	callback func(interface{}, string) error,
 	isMutable bool,
 ) error {
@@ -93,20 +106,25 @@ func walkObjectImplementation(
 		currentType := currentValue.Type()
 		// fmt.Printf("path: %s type: %s\n", path, currentType)
 
-		if currentType == needle {
+		if isNeedleType(currentType, currentValue, needleType, isMutable) {
 			// found the object type we were looking for
 			var err error
 
 			if isMutable {
-				//if mutable, expect the needl valueto be settable
+				//if mutable, expect the needle value to be settable
 				if !currentValue.CanSet() && currentType.Kind() != reflect.Pointer {
 					return fmt.Errorf(
 						"at path=%s, value=%s, found a value of type %s, but it is not settable",
-						path, currentValue, needle,
+						path, currentValue, needleType,
 					)
 				}
-				// mutable, so pass a pointer to the currentValue and path to the callback
-				err = callback(currentValue.Addr().Interface(), path)
+				if needleType.Kind() == reflect.Interface {
+					//if the needle type is already an interface, don't get the pointer
+					err = callback(currentValue.Interface(), path)
+				} else {
+					// otherwise, this is a mutable walk, so pass a pointer to the currentValue and path to the callback
+					err = callback(currentValue.Addr().Interface(), path)
+				}
 			} else {
 				// immutable, so pass the currentValue and path to the callback
 				err = callback(currentValue.Interface(), path)
@@ -114,6 +132,13 @@ func walkObjectImplementation(
 			if err != nil {
 				return fmt.Errorf("callback error at path=%s, type=%s, value=%s: %w",
 					path, currentType, currentValue, err)
+			}
+
+			//if we get here, the needle callback finished.  If the current type is a pointer,
+			//stop the evaluation, otherwise we'll call the callback a second time on the Elem
+			//value of the pointer.
+			if currentType.Kind() == reflect.Pointer {
+				return nil
 			}
 		}
 		if currentType.Kind() == reflect.Pointer {
@@ -132,9 +157,13 @@ func walkObjectImplementation(
 
 		}
 		if currentType.Kind() == reflect.Struct {
-			for index := 0; index < currentType.NumField(); index++ {
-				fieldValue := currentValue.Field(index)
-				fieldName := getFieldPathName(index, currentType, currentValue)
+			for _, field := range reflect.VisibleFields(currentType) {
+				//skip exported fields
+				if !field.IsExported() {
+					continue
+				}
+				fieldValue := currentValue.FieldByName(field.Name)
+				fieldName := getFieldPathName(field, currentType, currentValue)
 
 				err := process(fieldValue, addFieldToPath(path, fieldName))
 				if err != nil {
