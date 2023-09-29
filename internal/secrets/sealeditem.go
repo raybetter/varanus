@@ -63,10 +63,10 @@ func (si SealedItem) checkRawValue() error {
 }
 
 // implement validation.Validatable
-func (si SealedItem) Validate(vp *validation.ValidationProcess) error {
+func (si SealedItem) Validate(vet validation.ValidationErrorTracker) error {
 	err := si.checkRawValue()
 	if err != nil {
-		vp.AddValidationError(si, err.Error())
+		vet.AddValidationError(si, err.Error())
 	}
 	return nil
 }

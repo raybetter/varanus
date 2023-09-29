@@ -5,7 +5,6 @@ import (
 	"varanus/internal/validation"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,13 +17,9 @@ func TestSealedItemSealed(t *testing.T) {
 	assert.Equal(t, "sealed(+abcdef+jk==)", si.GetValue())
 
 	//should have no validation failures
-	vp := validation.ValidationProcess{}
-
-	err := si.Validate(&vp)
+	validationResult, err := validation.ValidateObject(si)
 	assert.Nil(t, err)
-
-	err = vp.GetFinalValidationError()
-	assert.Nil(t, err)
+	assert.Nil(t, validationResult.AsError())
 
 	// check string representations
 	expectedString := `secrets.SealedItem{value:"+abcdef+jk==", isSealed:true}`
@@ -50,13 +45,9 @@ func TestSealedItemUnsealed(t *testing.T) {
 	assert.Equal(t, "some text", si.GetValue())
 
 	//should have no validation failures
-	vp := validation.ValidationProcess{}
-
-	err := si.Validate(&vp)
+	validationResult, err := validation.ValidateObject(si)
 	assert.Nil(t, err)
-
-	err = vp.GetFinalValidationError()
-	assert.Nil(t, err)
+	assert.Nil(t, validationResult.AsError())
 
 	// check string representations
 	expectedString := `secrets.SealedItem{value:"<unsealed value redacted>", isSealed:false}`
@@ -111,15 +102,9 @@ func TestSealedItemValidationErrors(t *testing.T) {
 		si := CreateSealedItem(testCase.CreateStr)
 
 		//should have a validation error because the value is empty
-		vp := validation.ValidationProcess{}
-
-		err := si.Validate(&vp)
-		assert.Nilf(t, err, "for test index %d", index)
-
-		err = vp.GetFinalValidationError()
-		require.NotNilf(t, err, "for test index %d", index)
-
-		assert.ErrorContainsf(t, err, testCase.VError, "for test index %d", index)
+		validationResult, err := validation.ValidateObject(si)
+		assert.Nil(t, err)
+		assert.ErrorContainsf(t, validationResult.AsError(), testCase.VError, "for test index %d", index)
 	}
 
 }
@@ -213,11 +198,9 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 	{
 		//validate the sealed value to make sure our validation works on an actual sealed value
 		//should have no validation failures
-		vp := validation.ValidationProcess{}
-		err = si.Validate(&vp)
+		validationResult, err := validation.ValidateObject(si)
 		assert.Nil(t, err)
-		err = vp.GetFinalValidationError()
-		assert.Nil(t, err)
+		assert.Nil(t, validationResult.AsError())
 	}
 
 	{
