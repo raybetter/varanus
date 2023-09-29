@@ -30,128 +30,162 @@ func TestIsUrlHost(t *testing.T) {
 
 }
 
-func TestValidationProcessWithErrors(t *testing.T) {
+type mockValidatable struct {
+	validationError   string // if set, will go as a validation error added to the ValidationErrorTracker
+	validationFailure string // if set, will return as a validation failure returned from Validate
+}
 
-	type TestObject struct {
-		value string
+func (mv mockValidatable) Validate(vet ValidationErrorTracker) error {
+	if mv.validationFailure != "" {
+		return fmt.Errorf(mv.validationFailure)
 	}
+	if mv.validationError != "" {
+		vet.AddValidationError(mv, mv.validationError)
+	}
+	//else no validation error
 
-	vp := ValidationProcess{}
-
-	obj1 := TestObject{"object 1"}
-	vp.AddValidationError(
-		obj1,
-		"error 1 '%s'", "string arg 1",
-	)
-	assert.Len(t, vp.ErrorList, 1)
-	assert.Equal(t, obj1, vp.ErrorList[0].Object)
-	assert.Equal(t, "error 1 'string arg 1'", vp.ErrorList[0].Error)
-
-	obj2 := TestObject{"object 2"}
-	vp.AddValidationError(
-		obj2,
-		"error 2 '%s'", "string arg 2",
-	)
-	assert.Len(t, vp.ErrorList, 2)
-	assert.Equal(t, obj2, vp.ErrorList[1].Object)
-	assert.Equal(t, "error 2 'string arg 2'", vp.ErrorList[1].Error)
-
-	finalizeError := vp.GetFinalValidationError()
-
-	expectedHumanReadableString := `*****************************************************
-2 Validation Errors
-Error error 1 'string arg 1' on object:
-validation.TestObject{value:"object 1"}
---------------------
-Error error 2 'string arg 2' on object:
-validation.TestObject{value:"object 2"}
---------------------
-*****************************************************
-`
-
-	assert.Equal(t, expectedHumanReadableString, vp.HumanReadable())
-
-	errString1 := "error 1 'string arg 1' on object validation.TestObject{value:\"object 1\"}"
-	errString2 := "error 2 'string arg 2' on object validation.TestObject{value:\"object 2\"}"
-
-	assert.Contains(t, finalizeError.Error(), errString1)
-	assert.Contains(t, finalizeError.Error(), errString2)
-
-	vpe, ok := finalizeError.(ValidationError)
-
-	assert.Truef(t, ok, "Should alwasy be a ValidationProcessError")
-
-	assert.Equal(t, vp.ErrorList, vpe.ErrorList)
-
-	assert.Equal(t, expectedHumanReadableString, vpe.HumanReadable())
-
-}
-
-type validatableTestObjectNoErrors struct {
-}
-
-func (vtone validatableTestObjectNoErrors) Validate(vp *ValidationProcess) error {
+	//no validation failure
 	return nil
 }
 
-func TestValidationProcessWithoutErrors(t *testing.T) {
+type mockValidationTargetTop struct {
+	mockValidatable
+	Middle1 mockValidationTargetMiddle
+	Middle2 mockValidationTargetMiddle
+}
 
-	vp := ValidationProcess{}
+type mockValidationTargetMiddle struct {
+	mockValidatable
+	Bottom1 MockValidationTargetBottom
+	Bottom2 MockValidationTargetBottom
+}
 
-	//no errors added
-	vto := validatableTestObjectNoErrors{}
+type MockValidationTargetBottom struct {
+	mockValidatable
+}
 
-	assert.Len(t, vp.ErrorList, 0)
+func TestValidationProcessNoErrors(t *testing.T) {
 
-	vp.Validate(vto)
+	validationTarget := mockValidationTargetTop{
+		mockValidatable: mockValidatable{"", ""},
+		Middle1: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"", ""},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"", ""},
+			},
+		},
+		Middle2: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"", ""},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"", ""},
+			},
+		},
+	}
 
-	assert.Len(t, vp.ErrorList, 0)
+	expectedHumanReadableString := `No validation errors
+`
 
-	finalizeError := vp.GetFinalValidationError()
-
-	assert.Nil(t, finalizeError)
-
-	assert.Equal(t, "No validation errors\n", vp.HumanReadable())
+	validationResult, err := ValidateObject(validationTarget)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
+	assert.Len(t, validationResult.GetErrorList(), 0)
+	assert.Nil(t, validationResult.AsError())
+	assert.Equal(t, expectedHumanReadableString, validationResult.HumanReadable())
 
 }
 
-type validatableTestObjectFails struct {
-}
+func TestValidationProcessWithErrors(t *testing.T) {
 
-func (vtof validatableTestObjectFails) Validate(vp *ValidationProcess) error {
-	return fmt.Errorf("Test error")
+	validationTarget := mockValidationTargetTop{
+		mockValidatable: mockValidatable{"top validation error", ""},
+		Middle1: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"middle validation error 1", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 11", ""},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 12", ""},
+			},
+		},
+		Middle2: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"middle validation error 2", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 21", ""},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 22", ""},
+			},
+		},
+	}
+
+	expectedErrors := []string{
+		"top validation error",
+		"middle validation error 1",
+		"bottom validation error 11",
+		"bottom validation error 12",
+		"middle validation error 2",
+		"bottom validation error 21",
+		"bottom validation error 22",
+	}
+	expectedObjects := []interface{}{
+		validationTarget.mockValidatable,
+		validationTarget.Middle1.mockValidatable,
+		validationTarget.Middle1.Bottom1.mockValidatable,
+		validationTarget.Middle1.Bottom2.mockValidatable,
+		validationTarget.Middle2.mockValidatable,
+		validationTarget.Middle2.Bottom1.mockValidatable,
+		validationTarget.Middle2.Bottom2.mockValidatable,
+	}
+
+	validationResult, err := ValidateObject(validationTarget)
+	assert.Nil(t, err)
+	assert.Equal(t, 7, validationResult.GetErrorCount())
+	errorList := validationResult.GetErrorList()
+	humanReadableResult := validationResult.HumanReadable()
+	errorResult := validationResult.AsError().Error()
+	for index := 0; index < len(expectedErrors); index++ {
+		assert.Equal(t, expectedErrors[index], errorList[index].Error, "for index %d", index)
+		assert.Equal(t, expectedObjects[index], errorList[index].Object, "for index %d", index)
+		assert.Contains(t, humanReadableResult, expectedErrors[index], "for index %d", index)
+		assert.Contains(t, errorResult, expectedErrors[index], "for index %d", index)
+	}
+
 }
 
 func TestValidatableWithValidationFailures(t *testing.T) {
 
-	vp := ValidationProcess{}
+	validationTarget := mockValidationTargetTop{
+		mockValidatable: mockValidatable{"top validation error", ""},
+		Middle1: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"middle validation error 1", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 11", "fail at bottom 11"},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 12", ""},
+			},
+		},
+		Middle2: mockValidationTargetMiddle{
+			mockValidatable: mockValidatable{"middle validation error 2", ""},
+			Bottom1: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 21", ""},
+			},
+			Bottom2: MockValidationTargetBottom{
+				mockValidatable: mockValidatable{"bottom validation error 22", "fail at bottom 22"},
+			},
+		},
+	}
 
-	vto := validatableTestObjectFails{}
-
-	err := vp.Validate(vto)
-
-	assert.NotNil(t, vp.validationFailedError)
-
-	assert.ErrorContains(t, err, "Test error")
-
-	assert.PanicsWithError(t,
-		"illegal call to AddValidationError after validation failure: Test error",
-		func() { vp.AddValidationError(nil, "") },
-	)
-
-	assert.PanicsWithError(t,
-		"illegal call to Validate after validation failure: Test error",
-		func() { vp.Validate(validatableTestObjectNoErrors{}) },
-	)
-
-	assert.PanicsWithError(t,
-		"illegal call to GetFinalValidationError after validation failure: Test error",
-		func() { vp.GetFinalValidationError() },
-	)
-
-	assert.PanicsWithError(t,
-		"illegal call to HumanReadable after validation failure: Test error",
-		func() { vp.HumanReadable() },
-	)
+	validationResult, err := ValidateObject(validationTarget)
+	assert.ErrorContains(t, err, "fail at bottom 11")
+	assert.Equal(t, 0, validationResult.GetErrorCount())
+	assert.Len(t, validationResult.GetErrorList(), 0)
+	assert.Nil(t, validationResult.AsError())
 
 }
