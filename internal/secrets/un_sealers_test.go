@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"fmt"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -392,12 +393,13 @@ func TestInvalidCiphertext(t *testing.T) {
 
 }
 
-// MockSecretHolder provides a SecretHolder interface wrapper around a sealed item for testing
-type MockSecretHolder struct {
-	SI SealedItem
+// MockMultiSecretHolder provides a SecretHolder interface wrapper around a sealed item for testing
+type MockMultiSecretHolder struct {
+	SI1 SealedItem
+	SI2 SealedItem
 }
 
-func TestSecretHolderMethods(t *testing.T) {
+func TestMixedSealUnseal(t *testing.T) {
 
 	sealer := secretSealerImpl{}
 	unsealer := secretUnsealerImpl{}
@@ -410,49 +412,128 @@ func TestSecretHolderMethods(t *testing.T) {
 	assert.Nil(t, err)
 
 	//make a mock secret holder
-	secretValue := "it's a secret."
-	msh := MockSecretHolder{
-		SI: CreateSealedItem(secretValue),
+	secret1 := "it's a secret."
+	secret2 := "it's another secret."
+	mssh := MockMultiSecretHolder{
+		SI1: CreateSealedItem(secret1),
+		SI2: CreateSealedItem(secret2),
 	}
 
-	//check the initial, unsealed state
+	//seal one item ahead of time
+	mssh.SI1.Seal(&sealer)
+
+	//check the initial state
 	{
-		check, err := unsealer.CheckSeals(msh)
+		check, err := unsealer.CheckSeals(mssh)
 		assert.Nil(t, err)
-		assert.Equal(t, 0, check.SealedCount)
+		assert.Equal(t, 1, check.SealedCount)
 		assert.Equal(t, 1, check.UnsealedCount)
 		assert.Len(t, check.UnsealErrors, 0)
 	}
 
-	//seal and check
+	//seal the top object
 	{
-		sealResult, err := sealer.SealObject(&msh)
+		sealResult, err := sealer.SealObject(&mssh)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, sealResult.NumberSealed)
-		assert.Equal(t, 1, sealResult.TotalSealedCount)
+		assert.Equal(t, 2, sealResult.TotalSealedCount)
 		assert.Equal(t, 0, sealResult.TotalUnsealedCount)
 		assert.Len(t, sealResult.SealErrors, 0)
 	}
 
+	//unseal one item ahead of time
+	mssh.SI1.Unseal(&unsealer)
+
 	//unseal and check
 	{
-		unsealResult, err := unsealer.UnsealObject(&msh)
+		unsealResult, err := unsealer.UnsealObject(&mssh)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, unsealResult.TotalSealedCount)
-		assert.Equal(t, 1, unsealResult.TotalUnsealedCount)
+		assert.Equal(t, 2, unsealResult.TotalUnsealedCount)
 		assert.Equal(t, 1, unsealResult.NumberUnsealed)
 		assert.Len(t, unsealResult.UnsealErrors, 0)
 	}
 
-	//corrupt and check
-	msh.SI = CreateUnsafeSealedItem("+aaaaaa==", true)
+}
+
+type mockFailingSealer struct {
+}
+
+func (mfs *mockFailingSealer) LoadPublicKeyFromFile(filename string) error {
+	return nil
+}
+func (mfs *mockFailingSealer) LoadPublicKey(rawBytes []byte) error {
+	return nil
+}
+func (mfs *mockFailingSealer) ClearKeys() {
+	//do nothing
+}
+func (mfs *mockFailingSealer) GetMaximumSecretSize() (int, error) {
+	return 10000, nil
+}
+func (mfs *mockFailingSealer) SealSecret(secretToSeal string) (string, error) {
+	return "", fmt.Errorf("intentional seal failure")
+}
+func (mfs *mockFailingSealer) SealObject(objectToSeal interface{}) (SealResult, error) {
+	return SealObject(objectToSeal, mfs)
+}
+
+func TestCheckSealUnsealErrors(t *testing.T) {
+
+	sealer := secretSealerImpl{}
+	unsealer := secretUnsealerImpl{}
+
+	//make a sealer and unsealer
+	err := sealer.LoadPublicKeyFromFile(TEST_FILE_PREFIX + PUBLIC_KEY_4096_FILENAME)
+	assert.Nil(t, err)
+
+	err = unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
+	assert.Nil(t, err)
+
+	//make a mock secret holder
+	secret1 := "it's a secret."
+	secret2 := "it's another secret."
+	mssh := MockMultiSecretHolder{
+		SI1: CreateSealedItem(secret1),
+		SI2: CreateSealedItem(secret2),
+	}
+
+	//make a corrupt sealed item
+	mssh.SI1 = CreateUnsafeSealedItem("+aaaaaa==", true)
+
+	//check the structure
 	{
-		check, err := unsealer.CheckSeals(msh)
+		check, err := unsealer.CheckSeals(mssh)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, check.SealedCount)
-		assert.Equal(t, 0, check.UnsealedCount)
+		assert.Equal(t, 1, check.UnsealedCount)
 		require.Len(t, check.UnsealErrors, 1)
 		assert.ErrorContains(t, check.UnsealErrors[0], "crypto/rsa: decryption error")
+	}
+
+	//try to unseal it
+	{
+		check, err := unsealer.UnsealObject(&mssh)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, check.TotalSealedCount)
+		assert.Equal(t, 1, check.TotalUnsealedCount)
+		assert.Equal(t, 0, check.NumberUnsealed)
+		require.Len(t, check.UnsealErrors, 1)
+		assert.ErrorContains(t, check.UnsealErrors[0], "crypto/rsa: decryption error")
+	}
+
+	//make a sealer we know will error
+	failingSealer := &mockFailingSealer{}
+
+	//try to seal it
+	{
+		check, err := failingSealer.SealObject(&mssh)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, check.TotalSealedCount)
+		assert.Equal(t, 1, check.TotalUnsealedCount)
+		assert.Equal(t, 0, check.NumberSealed)
+		require.Len(t, check.SealErrors, 1)
+		assert.ErrorContains(t, check.SealErrors[0], "intentional seal failure")
 	}
 
 }

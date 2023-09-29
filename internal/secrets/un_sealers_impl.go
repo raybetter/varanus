@@ -203,6 +203,6 @@ func (ss secretSealerImpl) SealSecret(secretToSeal string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func (su *secretSealerImpl) SealObject(objectToUnseal interface{}) (SealResult, error) {
-	return SealObject(objectToUnseal, su)
+func (su *secretSealerImpl) SealObject(objectToSeal interface{}) (SealResult, error) {
+	return SealObject(objectToSeal, su)
 }

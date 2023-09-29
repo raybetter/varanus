@@ -104,7 +104,7 @@ func walkObjectImplementation(
 	process = func(currentValue reflect.Value, path string) error {
 
 		currentType := currentValue.Type()
-		// fmt.Printf("path: %s type: %s\n", path, currentType)
+		// fmt.Printf("path: %s type: %s value %s\n", path, currentType, currentValue)
 
 		if isNeedleType(currentType, currentValue, needleType, isMutable) {
 			// found the object type we were looking for
@@ -134,11 +134,14 @@ func walkObjectImplementation(
 					path, currentType, currentValue, err)
 			}
 
-			//if we get here, the needle callback finished.  If the current type is a pointer,
-			//stop the evaluation, otherwise we'll call the callback a second time on the Elem
+			//if we get here, the needle callback finished.
+			// If the current type is a pointer, derefernce it here so that we skip the pointer
+			// process logic, otherwise we might call the callback a second time on the Elem
 			//value of the pointer.
 			if currentType.Kind() == reflect.Pointer {
-				return nil
+				currentValue = currentValue.Elem()
+				currentType = currentValue.Type()
+				fmt.Printf("after ptr deref for needle type, path: %s type: %s value %s\n", path, currentType, currentValue)
 			}
 		}
 		if currentType.Kind() == reflect.Pointer {
@@ -231,91 +234,3 @@ func walkObjectImplementation(
 	return nil
 
 }
-
-// 	//declare recursive function
-// 	var process func(reflect.Value, string) error
-
-// 	//define recursive function
-// 	process = func(currentValue reflect.Value, path string) error {
-
-// 		currentType := currentValue.Type()
-// 		// fmt.Printf("path: %s type: %s\n", path, currentType)
-
-// 		if currentType == needle {
-// 			// found the object we were looking for
-// 			// pass the currentValue and path to the callback
-// 			// fmt.Println("needle found at", path, "currentValue", currentValue, "currentType", currentType)
-// 			err := callback(currentValue.Interface(), path)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			return nil
-// 		}
-// 		if currentType.Kind() == reflect.Pointer {
-// 			//stop at nil pointers
-// 			if currentValue.IsNil() {
-// 				//stop at nil pointers
-// 				return nil
-// 			}
-
-// 			innerValue := currentValue.Elem()
-// 			// innerType := innerValue.Type()
-
-// 			err := process(innerValue, path)
-// 			if err != nil {
-// 				return err
-// 			}
-
-// 		}
-// 		if currentType.Kind() == reflect.Struct {
-// 			for index := 0; index < currentType.NumField(); index++ {
-// 				fieldValue := currentValue.Field(index)
-// 				fieldName := getFieldPathName(index, currentType, currentValue)
-
-// 				err := process(fieldValue, addFieldToPath(path, fieldName))
-// 				if err != nil {
-// 					return err
-// 				}
-// 			}
-// 			return nil
-// 		}
-// 		if currentType.Kind() == reflect.Slice {
-// 			for index := 0; index < currentValue.Len(); index++ {
-// 				err := process(
-// 					currentValue.Index(index),
-// 					fmt.Sprintf("%s[%d]", path, index),
-// 				)
-// 				if err != nil {
-// 					return err
-// 				}
-// 			}
-// 			return nil
-// 		}
-// 		if currentType.Kind() == reflect.Map {
-// 			iter := currentValue.MapRange()
-// 			for iter.Next() {
-// 				k := iter.Key()
-// 				v := iter.Value()
-
-// 				// use the map value directly because we will not modify it
-// 				err := process(v, fmt.Sprintf("%s[%s]", path, k))
-
-// 				if err != nil {
-// 					return err
-// 				}
-// 			}
-// 			return nil
-// 		}
-
-// 		//else it's a single value type we don't care about
-// 		return nil
-
-// 	}
-
-// 	err := process(reflect.ValueOf(haystack), "")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-
-// }
