@@ -19,9 +19,9 @@ tasks:
 
   coverage-test:
     description: run tests
+    vars:
+      TEST_SCOPE: '{{if eq "" .CLI_ARGS}}./...{{else}}varanus/{{.CLI_ARGS}}{{end}}'
     cmds:
       - mkdir -p coverage
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -cover -coverprofile=coverage/coverage.out -v ./...
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -cover -coverprofile=coverage/coverage.out -v {{.TEST_SCOPE}}
       - go tool cover -html=coverage/coverage.out -o coverage/coverage.html
-
-  
