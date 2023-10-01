@@ -116,7 +116,7 @@ func TestCreateTempFileAndDirBadPattern(t *testing.T) {
 			assert.Contains(t, rStr, "failed to make temp file")
 		}
 	}()
-	CreateTempFileAndDir("valid_dir_path", "//////invalid_pattern.*.txt")
+	CreateTempFileAndDir("test_output/valid_dir_path", "//////invalid_pattern.*.txt")
 
 }
 
