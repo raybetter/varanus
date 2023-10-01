@@ -3,9 +3,11 @@ package config
 import (
 	"testing"
 	"varanus/internal/secrets"
+	"varanus/internal/util"
 	"varanus/internal/validation"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSmtpConfigValidation(t *testing.T) {
@@ -70,25 +72,23 @@ func TestSmtpConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &validation.ValidationProcess{}
-	config := baseConfig
-	//validation
-	vp.Validate(config)
-	//checks
-	assert.Len(t, vp.ErrorList, 0, "for nominal case")
+	config := util.DeepCopy(baseConfig).(SMTPConfig) //make a copy of the config
+	validationResult, err := validation.ValidateObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
 	// test loop
 	for index, testCase := range testCases {
-		//setup
-		vp := &validation.ValidationProcess{}
-		config := baseConfig
-		testCase.Mutator(&config)
-		//validation
-		vp.Validate(config)
+		//do validation
+		config := util.DeepCopy(baseConfig).(SMTPConfig) //make a copy of the config
+		testCase.Mutator(&config)                        //modify the config
+		validationResult, err := validation.ValidateObject(config)
 		//checks
-		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
-		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
-		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
+		assert.Nil(t, err)
+		require.Equal(t, validationResult.GetErrorCount(), 1, "for test %d", index)
+		singleError := validationResult.GetErrorList()[0]
+		assert.IsType(t, testCase.ErrorObjectType, singleError.Object, "for test %d", index)
+		assert.Contains(t, singleError.Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -144,25 +144,23 @@ func TestIMAPConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &validation.ValidationProcess{}
-	config := baseConfig
-	//validation
-	vp.Validate(config)
-	//checks
-	assert.Len(t, vp.ErrorList, 0, "for nominal case")
+	config := util.DeepCopy(baseConfig).(IMAPConfig) //make a copy of the config
+	validationResult, err := validation.ValidateObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
 	// test loop
 	for index, testCase := range testCases {
-		//setup
-		vp := &validation.ValidationProcess{}
-		config := baseConfig
-		testCase.Mutator(&config)
-		//validation
-		vp.Validate(config)
+		//do validation
+		config := util.DeepCopy(baseConfig).(IMAPConfig) //make a copy of the config
+		testCase.Mutator(&config)                        //modify the config
+		validationResult, err := validation.ValidateObject(config)
 		//checks
-		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
-		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
-		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
+		assert.Nil(t, err)
+		require.Equal(t, validationResult.GetErrorCount(), 1, "for test %d", index)
+		singleError := validationResult.GetErrorList()[0]
+		assert.IsType(t, testCase.ErrorObjectType, singleError.Object, "for test %d", index)
+		assert.Contains(t, singleError.Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -217,26 +215,23 @@ func TestMailAccountConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &validation.ValidationProcess{}
-	config := baseConfig
-	//validation
-	vp.Validate(config)
-	//checks
-	assert.Len(t, vp.ErrorList, 0, "for nominal case")
+	config := util.DeepCopy(baseConfig).(MailAccountConfig) //make a copy of the config
+	validationResult, err := validation.ValidateObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
 	// test loop
 	for index, testCase := range testCases {
-		//setup
-		vp := &validation.ValidationProcess{}
-		config := deepCopyForTesting(baseConfig).(MailAccountConfig)
-
-		testCase.Mutator(&config)
-		//validation
-		vp.Validate(config)
+		//do validation
+		config := util.DeepCopy(baseConfig).(MailAccountConfig) //make a copy of the config
+		testCase.Mutator(&config)                               //modify the config
+		validationResult, err := validation.ValidateObject(config)
 		//checks
-		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
-		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
-		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
+		assert.Nil(t, err)
+		require.Equal(t, validationResult.GetErrorCount(), 1, "for test %d", index)
+		singleError := validationResult.GetErrorList()[0]
+		assert.IsType(t, testCase.ErrorObjectType, singleError.Object, "for test %d", index)
+		assert.Contains(t, singleError.Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -269,25 +264,23 @@ func TestSendLimitValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &validation.ValidationProcess{}
-	config := baseConfig
-	//validation
-	vp.Validate(config)
-	//checks
-	assert.Len(t, vp.ErrorList, 0, "for nominal case")
+	config := util.DeepCopy(baseConfig).(SendLimit) //make a copy of the config
+	validationResult, err := validation.ValidateObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
 	// test loop
 	for index, testCase := range testCases {
-		//setup
-		vp := &validation.ValidationProcess{}
-		config := baseConfig
-		testCase.Mutator(&config)
-		//validation
-		vp.Validate(config)
+		//do validation
+		config := util.DeepCopy(baseConfig).(SendLimit) //make a copy of the config
+		testCase.Mutator(&config)                       //modify the config
+		validationResult, err := validation.ValidateObject(config)
 		//checks
-		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
-		assert.IsType(t, SendLimit{}, vp.ErrorList[0].Object, "for test %d", index)
-		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
+		assert.Nil(t, err)
+		require.Equal(t, validationResult.GetErrorCount(), 1, "for test %d", index)
+		singleError := validationResult.GetErrorList()[0]
+		assert.IsType(t, SendLimit{}, singleError.Object, "for test %d", index)
+		assert.Contains(t, singleError.Error, testCase.Error, "for test %d", index)
 	}
 
 }
@@ -356,24 +349,23 @@ func TestMailConfigValidation(t *testing.T) {
 	}
 
 	//nominal case test should have no errors
-	vp := &validation.ValidationProcess{}
-	//validation
-	vp.Validate(baseConfig)
-	//checks
-	assert.Len(t, vp.ErrorList, 0, "for nominal case")
+	config := util.DeepCopy(baseConfig).(MailConfig) //make a copy of the config
+	validationResult, err := validation.ValidateObject(config)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
 	// test loop
 	for index, testCase := range testCases {
-		//setup
-		vp := &validation.ValidationProcess{}
-		config := deepCopyForTesting(baseConfig).(MailConfig)
-		testCase.Mutator(&config)
-		//validation
-		vp.Validate(config)
+		//do validation
+		config := util.DeepCopy(baseConfig).(MailConfig) //make a copy of the config
+		testCase.Mutator(&config)                        //modify the config
+		validationResult, err := validation.ValidateObject(config)
 		//checks
-		assert.Len(t, vp.ErrorList, 1, "for test %d", index)
-		assert.IsType(t, testCase.ErrorObjectType, vp.ErrorList[0].Object, "for test %d", index)
-		assert.Contains(t, vp.ErrorList[0].Error, testCase.Error, "for test %d", index)
+		assert.Nil(t, err)
+		require.Equal(t, validationResult.GetErrorCount(), 1, "for test %d", index)
+		singleError := validationResult.GetErrorList()[0]
+		assert.IsType(t, testCase.ErrorObjectType, singleError.Object, "for test %d", index)
+		assert.Contains(t, singleError.Error, testCase.Error, "for test %d", index)
 	}
 
 }

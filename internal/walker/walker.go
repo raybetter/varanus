@@ -110,6 +110,13 @@ func walkObjectImplementation(
 			// found the object type we were looking for
 			var err error
 
+			//if our needle type is a pointer, skip null pointers
+			if currentType.Kind() == reflect.Pointer {
+				if currentValue.IsNil() {
+					return nil
+				}
+			}
+
 			if isMutable {
 				//if mutable, expect the needle value to be settable
 				if !currentValue.CanSet() && currentType.Kind() != reflect.Pointer {
@@ -141,7 +148,7 @@ func walkObjectImplementation(
 			if currentType.Kind() == reflect.Pointer {
 				currentValue = currentValue.Elem()
 				currentType = currentValue.Type()
-				fmt.Printf("after ptr deref for needle type, path: %s type: %s value %s\n", path, currentType, currentValue)
+				// fmt.Printf("after ptr deref for needle type, path: %s type: %s value %s\n", path, currentType, currentValue)
 			}
 		}
 		if currentType.Kind() == reflect.Pointer {
