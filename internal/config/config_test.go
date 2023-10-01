@@ -196,6 +196,6 @@ func TestConfigWriteFailures(t *testing.T) {
 	c, err := ReadConfigFromFile(input_filename)
 	require.Nil(t, err)
 
-	err = c.WriteConfigToFile("&?not_valid_filename", false)
+	err = c.WriteConfigToFile("//////not_valid_filename", false)
 	assert.ErrorContains(t, err, "could not open file")
 }

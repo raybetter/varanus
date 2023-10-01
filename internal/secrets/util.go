@@ -14,7 +14,7 @@ type SealCheckResult struct {
 
 var sealedItemInterfaceType = reflect.TypeOf(SealedItem{})
 
-func (r SealCheckResult) Dump() {
+func (r SealCheckResult) HumanReadable() {
 	fmt.Printf("Of %d total items, %d are sealed and %d are unsealed.\n",
 		r.UnsealedCount+r.SealedCount, r.SealedCount, r.UnsealedCount)
 	if len(r.UnsealErrors) > 0 {

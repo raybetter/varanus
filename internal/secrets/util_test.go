@@ -6,7 +6,7 @@ import (
 
 func ExampleSealCheckResult() {
 	result := SealCheckResult{10, 20, []error{fmt.Errorf("an error")}}
-	result.Dump()
+	result.HumanReadable()
 	// Output:
 	// Of 30 total items, 20 are sealed and 10 are unsealed.
 	// 1 seal errors were detected:

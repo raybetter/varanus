@@ -28,7 +28,7 @@ func (va varanusAppImpl) SealConfig(args *SealConfigArgs) error {
 	fmt.Println("  ForceOverwrite: ", *args.ForceOverwrite)
 
 	//load the config
-	config, err := config.ReadConfig(*args.Input)
+	config, err := config.ReadConfigFromFile(*args.Input)
 	if err != nil {
 		return newApplicationError("Could not load config from '%s': %w", *args.Input, err)
 	}
@@ -51,7 +51,7 @@ func (va varanusAppImpl) SealConfig(args *SealConfigArgs) error {
 	}
 
 	//write the config out
-	err = config.WriteConfig(*args.Output, *args.ForceOverwrite)
+	err = config.WriteConfigToFile(*args.Output, *args.ForceOverwrite)
 	if err != nil {
 		return newApplicationError("Error writing output config to '%s': %w", *args.Output, err)
 	}
@@ -70,7 +70,7 @@ func (va varanusAppImpl) CheckConfig(args *CheckConfigArgs) error {
 	overallCheckOk := true
 
 	//load the config
-	config, err := config.ReadConfig(*args.Input)
+	config, err := config.ReadConfigFromFile(*args.Input)
 	if err != nil {
 		//return from here because we can't continue checks without a config
 		return newApplicationError("Could not load config from '%s': %w", *args.Input, err)
@@ -78,21 +78,13 @@ func (va varanusAppImpl) CheckConfig(args *CheckConfigArgs) error {
 		fmt.Println("The config was loaded successfully.")
 	}
 
-	vp := validation.ValidationProcess{}
-	config.Validate(&vp)
-	err = vp.GetFinalValidationError()
+	validationResult, err := validation.ValidateObject(config)
 	if err != nil {
-		valErr, ok := err.(validation.ValidationError)
-		if ok {
-			fmt.Printf("There were %d validation errors:\n", len(valErr.ErrorList))
-			for _, validationError := range valErr.ErrorList {
-				fmt.Printf("  %s\n", validationError.Error)
-			}
-		} else {
-			fmt.Printf("Config validation failed: %s\n", err)
-		}
-		// set the overallCheckOK because we can continue with checking the config even with
-		// validation errors
+		fmt.Printf("Config validation failed: %s\n", err)
+		overallCheckOk = false
+	}
+	validationResult.HumanReadable()
+	if validationResult.GetErrorCount() > 0 {
 		overallCheckOk = false
 	}
 
@@ -115,7 +107,7 @@ func (va varanusAppImpl) CheckConfig(args *CheckConfigArgs) error {
 	if err != nil {
 		return newApplicationError("Check operation failed unexpectedly: %w", err)
 	}
-	sealCheckResult.Dump()
+	sealCheckResult.HumanReadable()
 	if len(sealCheckResult.UnsealErrors) > 0 {
 		overallCheckOk = false
 	}
@@ -144,7 +136,7 @@ func (va varanusAppImpl) UnsealConfig(args *UnsealConfigArgs) error {
 	fmt.Println("  ForceOverwrite: ", *args.ForceOverwrite)
 
 	//load the config
-	config, err := config.ReadConfig(*args.Input)
+	configObj, err := config.ReadConfigFromFile(*args.Input)
 	if err != nil {
 		return newApplicationError("Could not load config from '%s': %w", *args.Input, err)
 	}
@@ -158,7 +150,7 @@ func (va varanusAppImpl) UnsealConfig(args *UnsealConfigArgs) error {
 	}
 
 	//unseal the config
-	unsealResult, err := unsealer.UnsealObject(config)
+	unsealResult, err := unsealer.UnsealObject(configObj)
 	if err != nil {
 		return newApplicationError("Error while unsealing the config: %w", err)
 	}
@@ -168,7 +160,7 @@ func (va varanusAppImpl) UnsealConfig(args *UnsealConfigArgs) error {
 	}
 
 	//write the config out
-	err = config.WriteConfig(*args.Output, *args.ForceOverwrite)
+	err = configObj.WriteConfigToFile(*args.Output, *args.ForceOverwrite)
 	if err != nil {
 		return newApplicationError("Error writing output config to '%s': %w", *args.Output, err)
 	}
