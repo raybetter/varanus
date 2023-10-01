@@ -693,3 +693,42 @@ func TestHeirarchicalInterfaceNeedleMutable(t *testing.T) {
 	assert.Equal(t, expectedCheckSequence, callbackSequence)
 	assert.Equal(t, expectedPathSequence, pathSequence)
 }
+
+type NeedleInterface interface {
+	Check() error
+}
+
+type NeedleObject struct {
+}
+
+func (no *NeedleObject) Check() error {
+	return nil
+}
+
+type NeedleContainer struct {
+	Obj1 *NeedleObject
+	Obj2 *NeedleObject
+}
+
+func TestWalkerWithNullNeedlePointers(t *testing.T) {
+	object := NeedleContainer{
+		Obj1: nil,
+		Obj2: &NeedleObject{},
+	}
+
+	callbackCount := 0
+	//setup the callback for the test
+	testCallback := func(needle interface{}, path string) error {
+		callbackCount += 1
+
+		return nil
+	}
+
+	needleType := reflect.TypeOf((*NeedleInterface)(nil)).Elem()
+
+	err := WalkObjectMutable(&object, needleType, testCallback)
+	assert.Nil(t, err)
+
+	//check results
+	assert.Equal(t, 1, callbackCount)
+}
