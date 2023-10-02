@@ -39,3 +39,11 @@ func CreateTempFileAndDir(dir string, pattern string) *os.File {
 	}
 	return tempFile
 }
+
+// Ptr returns a pointer the input argument, allowing you to do Ptr("constant value") when you
+// ~need~ **want** to set a *string in a struct definition in one line.
+//
+// https://stackoverflow.com/questions/30716354/how-do-i-do-a-literal-int64-in-go/30716481
+func Ptr[T any](v T) *T {
+	return &v
+}

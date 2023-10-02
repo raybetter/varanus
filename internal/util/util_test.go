@@ -142,3 +142,21 @@ func TestCreateTempFileAndDirNominal(t *testing.T) {
 	assert.Equal(t, testFileContents, string(fileData))
 
 }
+
+func TestPtr(t *testing.T) {
+	strval := "value"
+	intval := 10
+	floatval := 10.1
+
+	strPtr := Ptr(strval)
+	assert.Equal(t, strval, *strPtr)
+	intPtr := Ptr(intval)
+	assert.Equal(t, intval, *intPtr)
+	floatPtr := Ptr(floatval)
+	assert.Equal(t, floatval, *floatPtr)
+
+	//make sure we can do it with a constant
+	constPtr := Ptr("foobar")
+	assert.Equal(t, "foobar", *constPtr)
+
+}
