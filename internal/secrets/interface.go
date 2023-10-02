@@ -6,7 +6,7 @@ type SecretSealer interface {
 	ClearKeys()
 	GetMaximumSecretSize() (int, error)
 	SealSecret(secretToSeal string) (string, error)
-	SealObject(objectToSeal interface{}) (SealResult, error)
+	SealObject(objectToSeal interface{}) SealResult
 }
 
 type SecretUnsealer interface {
@@ -14,8 +14,8 @@ type SecretUnsealer interface {
 	LoadPrivateKey(rawBytes []byte, passphrase string) error
 	ClearKeys()
 	UnsealSecret(cipherText string) (string, error)
-	UnsealObject(objectToUnseal interface{}) (UnsealResult, error)
-	CheckSeals(objectToCheck interface{}) (SealCheckResult, error)
+	UnsealObject(objectToUnseal interface{}) UnsealResult
+	CheckSeals(objectToCheck interface{}) SealCheckResult
 }
 
 // CreateUnsafeSealedItem creates a sealed item from raw data with no checks -- primarily used for testing.
@@ -33,4 +33,16 @@ func MakeSecretSealer() SecretSealer {
 }
 func MakeSecretUnsealer() SecretUnsealer {
 	return &secretUnsealerImpl{}
+}
+
+type SealableReader interface {
+	IsValueSealed() bool
+	GetValue() string
+	Check(unsealer SecretUnsealer) error
+}
+
+type SealableWriter interface {
+	SealableReader
+	Seal(sealer SecretSealer) error
+	Unseal(unsealer SecretUnsealer) error
 }

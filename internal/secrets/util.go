@@ -3,6 +3,7 @@ package secrets
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"varanus/internal/walker"
 )
 
@@ -12,24 +13,25 @@ type SealCheckResult struct {
 	UnsealErrors  []error
 }
 
-var sealedItemInterfaceType = reflect.TypeOf(SealedItem{})
+func (r SealCheckResult) HumanReadable() string {
+	var sb strings.Builder
 
-func (r SealCheckResult) HumanReadable() {
-	fmt.Printf("Of %d total items, %d are sealed and %d are unsealed.\n",
+	fmt.Fprintf(&sb, "Of %d total items, %d are sealed and %d are unsealed.\n",
 		r.UnsealedCount+r.SealedCount, r.SealedCount, r.UnsealedCount)
 	if len(r.UnsealErrors) > 0 {
-		fmt.Printf("%d seal errors were detected:\n", len(r.UnsealErrors))
+		fmt.Fprintf(&sb, "%d seal errors were detected:\n", len(r.UnsealErrors))
 		for _, se := range r.UnsealErrors {
-			fmt.Println("  ", se)
+			fmt.Fprintf(&sb, "  %s\n", se)
 		}
 	}
+	return sb.String()
 }
 
-func CheckSealsOnObject(objectToSeal interface{}, unsealer SecretUnsealer) (SealCheckResult, error) {
+func CheckSealsOnObject(objectToSeal interface{}, unsealer SecretUnsealer) SealCheckResult {
 	result := SealCheckResult{}
 
 	sealedItemWorker := func(needle interface{}, path string) error {
-		si := needle.(SealedItem)
+		si := needle.(SealableReader)
 
 		if !si.IsValueSealed() {
 			result.UnsealedCount += 1
@@ -44,12 +46,13 @@ func CheckSealsOnObject(objectToSeal interface{}, unsealer SecretUnsealer) (Seal
 		return nil
 	}
 
+	var sealedItemInterfaceType = reflect.TypeOf((*SealableReader)(nil)).Elem()
 	err := walker.WalkObjectImmutable(objectToSeal, sealedItemInterfaceType, sealedItemWorker)
 	if err != nil {
-		// unreachable because there are no inducable errors in the worker callback
-		return SealCheckResult{}, err
+		// unreachable because the worker never returns an error
+		panic(err)
 	}
-	return result, nil
+	return result
 }
 
 type SealResult struct {
@@ -59,23 +62,27 @@ type SealResult struct {
 	SealErrors         []error
 }
 
-func (r SealResult) Dump() {
-	fmt.Printf("The seal operation sealed %d items.\n", r.NumberSealed)
-	fmt.Printf("After the seal operation, of %d total items, %d are sealed and %d are unsealed.\n",
+func (r SealResult) HumanReadable() string {
+	var sb strings.Builder
+
+	fmt.Fprintf(&sb, "The seal operation sealed %d items.\n", r.NumberSealed)
+	fmt.Fprintf(&sb, "After the seal operation, of %d total items, %d are sealed and %d are unsealed.\n",
 		r.TotalUnsealedCount+r.TotalSealedCount, r.TotalSealedCount, r.TotalUnsealedCount)
 	if len(r.SealErrors) > 0 {
-		fmt.Printf("%d seal errors were detected:\n", len(r.SealErrors))
+		fmt.Fprintf(&sb, "%d seal errors were detected:\n", len(r.SealErrors))
 		for _, se := range r.SealErrors {
-			fmt.Println("  ", se)
+			fmt.Fprintln(&sb, "  ", se)
 		}
 	}
+
+	return sb.String()
 }
 
-func SealObject(objectToSeal interface{}, sealer SecretSealer) (SealResult, error) {
+func SealObject(objectToSeal interface{}, sealer SecretSealer) SealResult {
 	result := SealResult{}
 
 	sealedItemWorker := func(needle interface{}, path string) error {
-		si := needle.(*SealedItem)
+		si := needle.(SealableWriter)
 
 		//already sealed
 		if si.IsValueSealed() {
@@ -98,12 +105,14 @@ func SealObject(objectToSeal interface{}, sealer SecretSealer) (SealResult, erro
 		return nil
 	}
 
+	var sealedItemInterfaceType = reflect.TypeOf((*SealableWriter)(nil)).Elem()
 	err := walker.WalkObjectMutable(objectToSeal, sealedItemInterfaceType, sealedItemWorker)
 	if err != nil {
-		// unreachable because there are no inducable errors in the worker callback
-		return SealResult{}, err
+		// unreachable because the worker never returns an error
+		panic(err)
+
 	}
-	return result, nil
+	return result
 }
 
 type UnsealResult struct {
@@ -113,23 +122,27 @@ type UnsealResult struct {
 	UnsealErrors       []error
 }
 
-func (r UnsealResult) Dump() {
-	fmt.Printf("The unseal operation unsealed %d items.\n", r.NumberUnsealed)
-	fmt.Printf("After the unseal operation, of %d total items, %d are sealed and %d are unsealed.\n",
+func (r UnsealResult) HumanReadable() string {
+	var sb strings.Builder
+
+	fmt.Fprintf(&sb, "The unseal operation unsealed %d items.\n", r.NumberUnsealed)
+	fmt.Fprintf(&sb, "After the unseal operation, of %d total items, %d are sealed and %d are unsealed.\n",
 		r.TotalUnsealedCount+r.TotalSealedCount, r.TotalSealedCount, r.TotalUnsealedCount)
 	if len(r.UnsealErrors) > 0 {
-		fmt.Printf("%d seal errors were detected:\n", len(r.UnsealErrors))
+		fmt.Fprintf(&sb, "%d seal errors were detected:\n", len(r.UnsealErrors))
 		for _, se := range r.UnsealErrors {
-			fmt.Println("  ", se)
+			fmt.Fprintln(&sb, "  ", se)
 		}
 	}
+
+	return sb.String()
 }
 
-func UnsealObject(objectToSeal interface{}, unsealer SecretUnsealer) (UnsealResult, error) {
+func UnsealObject(objectToSeal interface{}, unsealer SecretUnsealer) UnsealResult {
 	result := UnsealResult{}
 
 	sealedItemWorker := func(needle interface{}, path string) error {
-		si := needle.(*SealedItem)
+		si := needle.(SealableWriter)
 
 		//already unsealed
 		if !si.IsValueSealed() {
@@ -152,10 +165,11 @@ func UnsealObject(objectToSeal interface{}, unsealer SecretUnsealer) (UnsealResu
 		return nil
 	}
 
+	var sealedItemInterfaceType = reflect.TypeOf((*SealableWriter)(nil)).Elem()
 	err := walker.WalkObjectMutable(objectToSeal, sealedItemInterfaceType, sealedItemWorker)
 	if err != nil {
-		// unreachable because there are no inducable errors in the worker callback
-		return UnsealResult{}, err
+		// unreachable because the worker never returns an error
+		panic(err)
 	}
-	return result, nil
+	return result
 }

@@ -424,8 +424,7 @@ func TestMixedSealUnseal(t *testing.T) {
 
 	//check the initial state
 	{
-		check, err := unsealer.CheckSeals(mssh)
-		assert.Nil(t, err)
+		check := unsealer.CheckSeals(mssh)
 		assert.Equal(t, 1, check.SealedCount)
 		assert.Equal(t, 1, check.UnsealedCount)
 		assert.Len(t, check.UnsealErrors, 0)
@@ -433,8 +432,7 @@ func TestMixedSealUnseal(t *testing.T) {
 
 	//seal the top object
 	{
-		sealResult, err := sealer.SealObject(&mssh)
-		assert.Nil(t, err)
+		sealResult := sealer.SealObject(&mssh)
 		assert.Equal(t, 1, sealResult.NumberSealed)
 		assert.Equal(t, 2, sealResult.TotalSealedCount)
 		assert.Equal(t, 0, sealResult.TotalUnsealedCount)
@@ -446,8 +444,7 @@ func TestMixedSealUnseal(t *testing.T) {
 
 	//unseal and check
 	{
-		unsealResult, err := unsealer.UnsealObject(&mssh)
-		assert.Nil(t, err)
+		unsealResult := unsealer.UnsealObject(&mssh)
 		assert.Equal(t, 0, unsealResult.TotalSealedCount)
 		assert.Equal(t, 2, unsealResult.TotalUnsealedCount)
 		assert.Equal(t, 1, unsealResult.NumberUnsealed)
@@ -474,7 +471,7 @@ func (mfs *mockFailingSealer) GetMaximumSecretSize() (int, error) {
 func (mfs *mockFailingSealer) SealSecret(secretToSeal string) (string, error) {
 	return "", fmt.Errorf("intentional seal failure")
 }
-func (mfs *mockFailingSealer) SealObject(objectToSeal interface{}) (SealResult, error) {
+func (mfs *mockFailingSealer) SealObject(objectToSeal interface{}) SealResult {
 	return SealObject(objectToSeal, mfs)
 }
 
@@ -503,8 +500,7 @@ func TestCheckSealUnsealErrors(t *testing.T) {
 
 	//check the structure
 	{
-		check, err := unsealer.CheckSeals(mssh)
-		assert.Nil(t, err)
+		check := unsealer.CheckSeals(mssh)
 		assert.Equal(t, 1, check.SealedCount)
 		assert.Equal(t, 1, check.UnsealedCount)
 		require.Len(t, check.UnsealErrors, 1)
@@ -513,8 +509,7 @@ func TestCheckSealUnsealErrors(t *testing.T) {
 
 	//try to unseal it
 	{
-		check, err := unsealer.UnsealObject(&mssh)
-		assert.Nil(t, err)
+		check := unsealer.UnsealObject(&mssh)
 		assert.Equal(t, 1, check.TotalSealedCount)
 		assert.Equal(t, 1, check.TotalUnsealedCount)
 		assert.Equal(t, 0, check.NumberUnsealed)
@@ -527,8 +522,7 @@ func TestCheckSealUnsealErrors(t *testing.T) {
 
 	//try to seal it
 	{
-		check, err := failingSealer.SealObject(&mssh)
-		assert.Nil(t, err)
+		check := failingSealer.SealObject(&mssh)
 		assert.Equal(t, 1, check.TotalSealedCount)
 		assert.Equal(t, 1, check.TotalUnsealedCount)
 		assert.Equal(t, 0, check.NumberSealed)

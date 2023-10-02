@@ -113,11 +113,11 @@ func (su secretUnsealerImpl) UnsealSecret(cipherText string) (string, error) {
 	return string(plaintext), nil
 }
 
-func (su *secretUnsealerImpl) UnsealObject(objectToUnseal interface{}) (UnsealResult, error) {
+func (su *secretUnsealerImpl) UnsealObject(objectToUnseal interface{}) UnsealResult {
 	return UnsealObject(objectToUnseal, su)
 }
 
-func (su *secretUnsealerImpl) CheckSeals(objectToCheck interface{}) (SealCheckResult, error) {
+func (su *secretUnsealerImpl) CheckSeals(objectToCheck interface{}) SealCheckResult {
 	return CheckSealsOnObject(objectToCheck, su)
 }
 
@@ -203,6 +203,6 @@ func (ss secretSealerImpl) SealSecret(secretToSeal string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func (su *secretSealerImpl) SealObject(objectToSeal interface{}) (SealResult, error) {
+func (su *secretSealerImpl) SealObject(objectToSeal interface{}) SealResult {
 	return SealObject(objectToSeal, su)
 }
