@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+var verbose = false
+
+func SetVerbose(newval bool) {
+	verbose = newval
+}
+
 func getYamlNameFromTag(tag reflect.StructTag) string {
 	yamlTag := tag.Get("yaml")
 	if yamlTag == "" {
@@ -80,6 +86,9 @@ func isNeedleType(currentType reflect.Type, currentValue reflect.Value, needleTy
 	}
 	if needleType.Kind() == reflect.Interface {
 		//for interface types, try testing if the value implements the interface
+		// if verbose {
+		// 	fmt.Println("For isNeedleType with interface needle, current type is", currentType, "interface type is", needleType)
+		// }
 		if currentType.Implements(needleType) {
 			return true
 		}
@@ -104,7 +113,9 @@ func walkObjectImplementation(
 	process = func(currentValue reflect.Value, path string) error {
 
 		currentType := currentValue.Type()
-		// fmt.Printf("path: %s type: %s value %s\n", path, currentType, currentValue)
+		if verbose {
+			fmt.Printf("path: %s type: %s value %s\n", path, currentType, currentValue)
+		}
 
 		if isNeedleType(currentType, currentValue, needleType, isMutable) {
 			// found the object type we were looking for
@@ -175,9 +186,17 @@ func walkObjectImplementation(
 				fieldValue := currentValue.FieldByName(field.Name)
 				fieldName := getFieldPathName(field, currentType, currentValue)
 
-				err := process(fieldValue, addFieldToPath(path, fieldName))
-				if err != nil {
-					return err
+				if isMutable && fieldValue.CanAddr() {
+					//for mutable walks, pass the pointer to field values
+					err := process(fieldValue.Addr(), addFieldToPath(path, fieldName))
+					if err != nil {
+						return err
+					}
+				} else {
+					err := process(fieldValue, addFieldToPath(path, fieldName))
+					if err != nil {
+						return err
+					}
 				}
 			}
 			return nil

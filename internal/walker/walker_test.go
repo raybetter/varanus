@@ -445,6 +445,7 @@ type InterfaceContainer struct {
 	SOI1 SpecialObjectInterface
 	SOI2 SpecialObjectInterface
 	SOI3 SpecialObjectInterface
+	SOI4 SpecialObjectInterface
 	OSO1 OtherSpecialObject
 	OSO2 *OtherSpecialObject
 }
@@ -461,17 +462,19 @@ func (oso OtherSpecialObject) GetValues() string {
 	return "oso::" + strings.Join(oso.values, ",")
 }
 
-func TestInterfaceFields(t *testing.T) {
+func TestInterfaceFieldsImmutable(t *testing.T) {
 	so1 := SpecialObject{[]string{"foo1", "bar1"}}
 	so2 := &SpecialObject{[]string{"foo2", "bar2"}}
 	oso3 := OtherSpecialObject{[]string{"foo3", "bar3"}}
+	oso4 := &OtherSpecialObject{[]string{"foo4", "bar4"}}
 	oso1 := OtherSpecialObject{[]string{"foo-oso1", "bar-oso1"}}
 	oso2 := OtherSpecialObject{[]string{"foo-oso2", "bar-oso2"}}
 
 	ic := InterfaceContainer{
 		SOI1: &so1,
 		SOI2: so2,
-		SOI3: &oso3,
+		SOI3: oso3,
+		SOI4: oso4,
 		OSO1: oso1,
 		OSO2: &oso2,
 	}
@@ -480,6 +483,7 @@ func TestInterfaceFields(t *testing.T) {
 		"foo1,bar1",
 		"foo2,bar2",
 		"oso::foo3,bar3",
+		"oso::foo4,bar4",
 		"oso::foo-oso1,bar-oso1",
 		"oso::foo-oso2,bar-oso2",
 	}
@@ -487,6 +491,7 @@ func TestInterfaceFields(t *testing.T) {
 		"SOI1",
 		"SOI2",
 		"SOI3",
+		"SOI4",
 		"OSO1",
 		"OSO2",
 	}
@@ -508,6 +513,64 @@ func TestInterfaceFields(t *testing.T) {
 	soiType := reflect.TypeOf((*SpecialObjectInterface)(nil)).Elem()
 
 	err := WalkObjectImmutable(ic, soiType, testCallback)
+	assert.Nil(t, err)
+
+	//check results
+	assert.Equal(t, expectedCallbackSequence, callbackSequence)
+	assert.Equal(t, expectedPathSequence, pathSequence)
+}
+
+func TestInterfaceFieldsMutable(t *testing.T) {
+	so1 := SpecialObject{[]string{"foo1", "bar1"}}
+	so2 := &SpecialObject{[]string{"foo2", "bar2"}}
+	oso3 := OtherSpecialObject{[]string{"foo3", "bar3"}}
+	oso4 := &OtherSpecialObject{[]string{"foo4", "bar4"}}
+	oso1 := OtherSpecialObject{[]string{"foo-oso1", "bar-oso1"}}
+	oso2 := OtherSpecialObject{[]string{"foo-oso2", "bar-oso2"}}
+
+	ic := InterfaceContainer{
+		SOI1: &so1,
+		SOI2: so2,
+		SOI3: oso3,
+		SOI4: oso4,
+		OSO1: oso1,
+		OSO2: &oso2,
+	}
+
+	expectedCallbackSequence := []string{
+		"foo1,bar1",
+		"foo2,bar2",
+		"oso::foo3,bar3",
+		"oso::foo4,bar4",
+		"oso::foo-oso1,bar-oso1",
+		"oso::foo-oso2,bar-oso2",
+	}
+	expectedPathSequence := []string{
+		"SOI1",
+		"SOI2",
+		"SOI3",
+		"SOI4",
+		"OSO1",
+		"OSO2",
+	}
+
+	callbackSequence := []string{}
+	pathSequence := []string{}
+
+	//setup the callback for the test
+	testCallback := func(needle interface{}, path string) error {
+		pathSequence = append(pathSequence, path)
+
+		val, ok := needle.(SpecialObjectInterface)
+		require.True(t, ok)
+		callbackSequence = append(callbackSequence, val.GetValues())
+
+		return nil
+	}
+
+	soiType := reflect.TypeOf((*SpecialObjectInterface)(nil)).Elem()
+
+	err := WalkObjectMutable(&ic, soiType, testCallback)
 	assert.Nil(t, err)
 
 	//check results
@@ -731,4 +794,39 @@ func TestWalkerWithNullNeedlePointers(t *testing.T) {
 
 	//check results
 	assert.Equal(t, 1, callbackCount)
+}
+
+type SimpleItem struct {
+}
+
+type SimpleObject struct {
+	Foo struct {
+		Foo1 SimpleItem
+		Foo2 SimpleItem
+	}
+	Bar struct {
+		Bar1 SimpleItem
+		Bar2 SimpleItem
+	}
+}
+
+func ExampleVerbose() {
+	SetVerbose(true)
+	defer SetVerbose(false)
+	object := SimpleObject{}
+
+	testCallback := func(needle interface{}, path string) error {
+		return nil
+	}
+
+	WalkObjectImmutable(object, reflect.TypeOf(SimpleItem{}), testCallback)
+	// Output:
+	// path:  type: walker.SimpleObject value {{{} {}} {{} {}}}
+	// path: Foo type: struct { Foo1 walker.SimpleItem; Foo2 walker.SimpleItem } value {{} {}}
+	// path: Foo.Foo1 type: walker.SimpleItem value {}
+	// path: Foo.Foo2 type: walker.SimpleItem value {}
+	// path: Bar type: struct { Bar1 walker.SimpleItem; Bar2 walker.SimpleItem } value {{} {}}
+	// path: Bar.Bar1 type: walker.SimpleItem value {}
+	// path: Bar.Bar2 type: walker.SimpleItem value {}
+
 }
