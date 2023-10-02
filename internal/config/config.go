@@ -38,7 +38,8 @@ func ReadConfig(yamlData []byte) (*VaranusConfig, error) {
 }
 
 type VaranusConfig struct {
-	Mail MailConfig `yaml:"mail"`
+	Mail         MailConfig          `yaml:"mail"`
+	ForceFailure *ForceConfigFailure `yaml:"force_failure,omitempty"`
 }
 
 func (c *VaranusConfig) Validate(vet validation.ValidationErrorTracker) error {
