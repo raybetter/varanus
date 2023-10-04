@@ -5,6 +5,7 @@ import (
 	"io"
 	"varanus/internal/config"
 	"varanus/internal/secrets"
+	"varanus/internal/validation"
 )
 
 func (va varanusAppImpl) SealConfig(args *SealConfigArgs, outputStream io.Writer) error {
@@ -15,6 +16,19 @@ func (va varanusAppImpl) SealConfig(args *SealConfigArgs, outputStream io.Writer
 	config, err := config.ReadConfigFromFile(*args.Input)
 	if err != nil {
 		return newApplicationError("Could not load config from '%s': %w", *args.Input, err)
+	} else {
+		fmt.Fprintln(outputStream, "The config was loaded successfully.")
+	}
+
+	validationResult, err := validation.ValidateObject(config)
+	if err != nil {
+		fmt.Fprintf(outputStream, "Config validation failed: %s\n", err)
+		return newApplicationError(
+			"Refusing to seal the configuration because validation had an error -- please report this as a bug: %w", err)
+	}
+	fmt.Fprint(outputStream, validationResult.HumanReadable())
+	if validationResult.GetErrorCount() > 0 {
+		return newApplicationError("Refusing to seal unvalidated config file %s", *args.Input)
 	}
 
 	//create the sealer

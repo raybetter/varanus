@@ -19,7 +19,7 @@ func (r SealCheckResult) HumanReadable() string {
 	fmt.Fprintf(&sb, "Of %d total items, %d are sealed and %d are unsealed.\n",
 		r.UnsealedCount+r.SealedCount, r.SealedCount, r.UnsealedCount)
 	if len(r.UnsealErrors) > 0 {
-		fmt.Fprintf(&sb, "%d seal errors were detected:\n", len(r.UnsealErrors))
+		fmt.Fprintf(&sb, "%d seal check errors were detected:\n", len(r.UnsealErrors))
 		for _, se := range r.UnsealErrors {
 			fmt.Fprintf(&sb, "  %s\n", se)
 		}
@@ -129,7 +129,7 @@ func (r UnsealResult) HumanReadable() string {
 	fmt.Fprintf(&sb, "After the unseal operation, of %d total items, %d are sealed and %d are unsealed.\n",
 		r.TotalUnsealedCount+r.TotalSealedCount, r.TotalSealedCount, r.TotalUnsealedCount)
 	if len(r.UnsealErrors) > 0 {
-		fmt.Fprintf(&sb, "%d seal errors were detected:\n", len(r.UnsealErrors))
+		fmt.Fprintf(&sb, "%d unseal errors were detected:\n", len(r.UnsealErrors))
 		for _, se := range r.UnsealErrors {
 			fmt.Fprintln(&sb, "  ", se)
 		}

@@ -1,0 +1,19 @@
+mail:
+  accounts:
+    - name: test1
+      smtp:
+        sender_address: example@example.com
+        server_address: smtp.example.com
+        port: 465
+        username: joeuser@example.com
+        password: sealed(VyrEk/5+RbOiu4xt0fzmZ6Lk/YGk0vleDsQwHavBDfhOXpmJIGjSFaPgwUEYTJBD+emSkE+aP5S4QGxV2fd/QO1WSsYjaw6af4UZP+Tg0nWZLoirWUGxyJANOnYtDfrE2CTzXlMJlJU6yrydaO+YGlRDpEZhiP8NA4y+S/Zq/SyDUNm7mXEKZiqOg9t21sXAGP9JgpEkNJu2xfT+xOiZlYNg3BIkpiZYcI1Zg2UeBW1Bc8NZlFWXIEEEV+7+SPNAfKc6xM050kqDhq+ye5s2gZzHEPRnjh91Ey3l/RkBohPi2SL6+8rS8O88URNvQq4OTdynWYmksx9eJ5CDcB5SjasdXXqXU37OzZlkuiq98NN53gwTIf3OWEOddI7jWrASv6U/5Sk67hnkQjrgxfQeu7kIg/VosxxmE4Q52xECfpCuAuxlgE8QVuUy9pC1q9U+jRMxK3rz1sfYBcH3zRhEG2EKaKtVeAQVURhqHFN3foCp+BaC6wuRD+advPnHn2/hLCxpVeKTRIg96zpPy9xYWhfsjze+MkXnX03JGdR54kaky5W582E5/SHWKyV37XTCVeVFhrtjYS2gdvxEgjKKnV2dL6fZtgz7Fdpkh1jGRzGWypslXxZXIJO3AXrMUXvqC0eKYzYZUr5rQjVu/kJnjDIlMh/8nsTk8BWoQCLDMdI=)
+      imap:
+        server_address: "imap.example.com"
+        port: 993
+        username: janeuser@example.com
+        password: it's a another secret.
+  send_limits:
+    - min_period_minutes: 10
+      account_names:
+        - test1
+force_failure: seal_fails #NOTE:  This is only for testing and should not be used in production.

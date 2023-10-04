@@ -11,7 +11,7 @@ func TestSealCheckResult(t *testing.T) {
 	result := SealCheckResult{10, 20, []error{fmt.Errorf("an error")}}
 	output := result.HumanReadable()
 	expectedOutput := `Of 30 total items, 20 are sealed and 10 are unsealed.
-1 seal errors were detected:
+1 seal check errors were detected:
   an error
 `
 	assert.Equal(t, expectedOutput, output)
@@ -34,7 +34,7 @@ func TestUnsealResult(t *testing.T) {
 	output := result.HumanReadable()
 	expectedOutput := `The unseal operation unsealed 15 items.
 After the unseal operation, of 3 total items, 2 are sealed and 1 are unsealed.
-2 seal errors were detected:
+2 unseal errors were detected:
    an error
    another error
 `

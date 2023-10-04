@@ -1,5 +1,6 @@
 internal/util/test_output/
 internal/config/test_output
+internal/app/test_output
 coverage
 bin
 .vscode

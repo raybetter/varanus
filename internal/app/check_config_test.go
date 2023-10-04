@@ -114,7 +114,7 @@ func TestCheckConfigSealError(t *testing.T) {
 	assert.Contains(t, stdOutput, "No validation errors")
 	assert.Contains(t, stdOutput, "Of 2 total items, 1 are sealed and 1 are unsealed.")
 	assert.Contains(t, stdOutput, "The integrity of the sealed values was checked with the private key, but there were some errors.")
-	assert.Contains(t, stdOutput, "1 seal errors were detected")
+	assert.Contains(t, stdOutput, "1 seal check errors were detected")
 	assert.Contains(t, stdOutput, "error at path mail.accounts[0].SMTP.password: crypto/rsa: decryption error")
 
 }
