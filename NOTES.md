@@ -80,8 +80,21 @@ Sealed secrets
       the parse object is not protected.
     - For now, decide to trust the process with the private key loaded from the file
 
-
-
+Walker
+  - implement a recursive, depth-first walk down an object tree (e.g. walking items in maps and 
+    lists and fields of structs).  
+  - the walk can be implmented as mutable (expect to modify the needle objects in the callback) or
+    immutable (read only).
+  - the walk call accepts a `reflect.Type` type definition that can be an interface or a concrete
+    type.  For a 
+  - the call to the walk provides a callback function that has a `needle interface{}` argument that
+    should be cast to a `*NeedleType` (for the mutable walk) or a `NeedleType`
+  - tried creating a generic function that would do the type casting, but couldn't find a way to
+    pass an interface argument -- the generic type inference fails.  So just keep them as
+    `interface{}` types.
+  - use the walker to streamline the implementation of validation and sealing in the config 
+    management.
+    
 References:
 
 - crypto
