@@ -3,6 +3,7 @@ package config
 import (
 	"net/mail"
 	"strings"
+	"time"
 	"varanus/internal/secrets"
 	"varanus/internal/validation"
 )
@@ -124,8 +125,8 @@ func (c MailAccountConfig) Validate(vet validation.ValidationErrorTracker) error
 }
 
 type SendLimit struct {
-	MinPeriodMinutes int      `yaml:"min_period_minutes"`
-	AccountNames     []string `yaml:"account_names"`
+	MinPeriod    time.Duration `yaml:"min_period"`
+	AccountNames []string      `yaml:"account_names"`
 }
 
 func (c SendLimit) Validate(vet validation.ValidationErrorTracker) error {
@@ -137,10 +138,10 @@ func (c SendLimit) Validate(vet validation.ValidationErrorTracker) error {
 		)
 	}
 
-	if c.MinPeriodMinutes <= 0 {
+	if c.MinPeriod <= 0 {
 		vet.AddValidationError(
 			c,
-			"send limit min_period_minutes must be non-negative, not '%d'", c.MinPeriodMinutes,
+			"send limit min_period_minutes must be non-negative, not '%d'", c.MinPeriod,
 		)
 	}
 

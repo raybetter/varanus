@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 	"varanus/internal/util"
 	"varanus/internal/validation"
 
@@ -38,7 +39,7 @@ func TestEndToEnd(t *testing.T) {
 	assert.Equal(t, "sealed(+bbbbbb==)", c.Mail.Accounts[0].IMAP.Password.GetValue())
 
 	assert.Len(t, c.Mail.SendLimits, 1)
-	assert.Equal(t, c.Mail.SendLimits[0].MinPeriodMinutes, 10)
+	assert.Equal(t, c.Mail.SendLimits[0].MinPeriod, time.Duration(10)*time.Minute)
 	assert.Equal(t, c.Mail.SendLimits[0].AccountNames, []string{"test1"})
 
 	//write the config back out
@@ -58,7 +59,7 @@ func TestEndToEnd(t *testing.T) {
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
   send_limits:
-    - min_period_minutes: 10
+    - min_period: 10m0s
       account_names:
         - test1
 `
@@ -134,7 +135,7 @@ func TestEndToEndWithValidationErrors(t *testing.T) {
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
   send_limits:
-    - min_period_minutes: 10
+    - min_period: 10m0s
       account_names:
         - test1
 `

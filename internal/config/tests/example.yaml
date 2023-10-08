@@ -13,6 +13,6 @@ mail:
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
   send_limits:
-    - min_period_minutes: 10
+    - min_period: 10m
       account_names:
         - test1

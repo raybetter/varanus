@@ -13,7 +13,7 @@ mail:
         username: janeuser@example.com
         password: it's a another secret.
   send_limits:
-    - min_period_minutes: 10
+    - min_period: 10m
       account_names:
         - test1
 force_failure: seal_fails #NOTE:  This is only for testing and should not be used in production.

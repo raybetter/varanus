@@ -253,14 +253,14 @@ func TestSendLimitValidation(t *testing.T) {
 			Error:   "send limits account name list must not be empty",
 		},
 		{
-			Mutator: func(c *SendLimit) { c.MinPeriodMinutes = 0 },
+			Mutator: func(c *SendLimit) { c.MinPeriod = 0 },
 			Error:   "send limit min_period_minutes must be non-negative, not '0'",
 		},
 	}
 
 	baseConfig := SendLimit{
-		MinPeriodMinutes: 15,
-		AccountNames:     []string{"test1", "test2"},
+		MinPeriod:    15,
+		AccountNames: []string{"test1", "test2"},
 	}
 
 	//nominal case test should have no errors
@@ -311,7 +311,7 @@ func TestMailConfigValidation(t *testing.T) {
 			ErrorObjectType: SMTPConfig{},
 		},
 		{
-			Mutator:         func(c *MailConfig) { c.SendLimits[0].MinPeriodMinutes = 0 },
+			Mutator:         func(c *MailConfig) { c.SendLimits[0].MinPeriod = 0 },
 			Error:           "send limit min_period_minutes must be non-negative, not '0'",
 			ErrorObjectType: SendLimit{},
 		},
@@ -342,8 +342,8 @@ func TestMailConfigValidation(t *testing.T) {
 		},
 		SendLimits: []SendLimit{
 			{
-				MinPeriodMinutes: 15,
-				AccountNames:     []string{"test1"},
+				MinPeriod:    15,
+				AccountNames: []string{"test1"},
 			},
 		},
 	}
@@ -397,8 +397,8 @@ func TestMailConfig(t *testing.T) {
 		},
 		SendLimits: []SendLimit{
 			{
-				MinPeriodMinutes: 15,
-				AccountNames:     []string{"test1"},
+				MinPeriod:    15,
+				AccountNames: []string{"test1"},
 			},
 		},
 	}
