@@ -104,6 +104,7 @@ func TestSealedItemValidationErrors(t *testing.T) {
 		//should have a validation error because the value is empty
 		validationResult, err := validation.ValidateObject(si)
 		assert.Nil(t, err)
+		assert.Equal(t, 1, validationResult.GetValidationCount())
 		assert.ErrorContainsf(t, validationResult.AsError(), testCase.VError, "for test index %d", index)
 	}
 

@@ -63,7 +63,7 @@ func (si SealedItem) checkRawValue() error {
 }
 
 // implement validation.Validatable
-func (si SealedItem) Validate(vet validation.ValidationErrorTracker) error {
+func (si SealedItem) Validate(vet validation.ValidationErrorTracker, root interface{}) error {
 	err := si.checkRawValue()
 	if err != nil {
 		vet.AddValidationError(si, err.Error())
