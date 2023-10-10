@@ -15,3 +15,11 @@ func TestApplicationError(t *testing.T) {
 
 	assert.Equal(t, "test error some string 55", appError.Unwrap().Error())
 }
+
+func TestVaranusAppInterface(t *testing.T) {
+	//this test will not compile if the varanusAppImpl doesn't meet the VaranusApp spec
+	f := func(appInt VaranusApp) {}
+
+	va := varanusAppImpl{}
+	f(va)
+}
