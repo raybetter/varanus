@@ -25,3 +25,12 @@ tasks:
       - mkdir -p coverage
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -cover -coverprofile=coverage/coverage.out -v {{.TEST_SCOPE}}
       - go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+
+  clean:
+    description: clean up output from test runs
+    cmds:
+      - rm -r internal/config/test_output || true
+      - rm -r internal/app/test_output || true
+      - rm -r internal/util/test_output || true
+
+
