@@ -12,8 +12,14 @@ type Validatable interface {
 	// Validatable.
 	//
 	// Validate should only return an error if an failure prevents the validation checks from
-	// completing.
-	Validate(vet ValidationErrorTracker) error
+	// completing.  Any validation error shourl be added to the ValidationErrorTracker.
+	//
+	// the root parameter is the top-level validation object, e.g. the object that ValidateObject
+	// is calle with.  It is provided to allow an object to access global context, (e.g. if
+	// validating config, checking a list elsewhere in the config for the presence of a name).
+	// The implementation of a validation hierarchy should know what object is expected for root
+	// and return an error if the wrong object is passed.
+	Validate(vet ValidationErrorTracker, root interface{}) error
 }
 
 // ValidationErrorTracker provides the required interface that Validateable objects can access to

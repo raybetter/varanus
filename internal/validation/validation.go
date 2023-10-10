@@ -23,7 +23,8 @@ type SingleValidationError struct {
 // ValidationResult is a collection of SingleValidationErrors accumulated during a call to
 // ValidateObject.
 type ValidationResult struct {
-	errorList []SingleValidationError
+	errorList       []SingleValidationError //accumulates the validation errors for ValidationErrorTracker
+	validationCount int                     //number of validation callbacks we hit
 }
 
 // GetErrorList provides a copy of validation errors it holds.
@@ -60,6 +61,11 @@ func (vr ValidationResult) HumanReadable() string {
 // GetErrorCount returns the number of validation errors in the result
 func (vr ValidationResult) GetErrorCount() int {
 	return len(vr.errorList)
+}
+
+// GetValidationCount returns the number of validation callbacks that were executed
+func (vr ValidationResult) GetValidationCount() int {
+	return vr.validationCount
 }
 
 // AsError returns an error object containing all validation errors.  Returns nil if there are
@@ -105,15 +111,17 @@ func (vr *ValidationResult) AddValidationError(object interface{}, message strin
 //
 // This function only returns an error if a failure keeps the validation from completing or
 // the validation result is invalid due to an error.
-func ValidateObject(target interface{}) (ValidationResult, error) {
+func ValidateObject(root interface{}) (ValidationResult, error) {
 
 	result := ValidationResult{}
 
 	validationWorker := func(needle interface{}, path string) error {
 		validationTarget := needle.(Validatable)
 
+		result.validationCount += 1
+
 		//validate
-		err := validationTarget.Validate(&result)
+		err := validationTarget.Validate(&result, root)
 		//this error indicates the validation results are not valid, so we propogate it out and
 		//stop validation
 		if err != nil {
@@ -124,7 +132,7 @@ func ValidateObject(target interface{}) (ValidationResult, error) {
 	}
 
 	validatableType := reflect.TypeOf((*Validatable)(nil)).Elem()
-	err := walker.WalkObjectImmutable(target, validatableType, validationWorker)
+	err := walker.WalkObjectImmutable(root, validatableType, validationWorker)
 	if err != nil {
 		return ValidationResult{}, err
 	}
