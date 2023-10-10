@@ -5,9 +5,9 @@ package cmd
 
 import (
 	"os"
-	"strings"
 
 	"varanus/internal/app"
+	"varanus/internal/util"
 
 	"github.com/spf13/cobra"
 )
@@ -172,24 +172,9 @@ func makeSealCmd(context *CmdContext) *cobra.Command {
 
 }
 
-func injectValueBeforeExtension(filename string, token string) string {
-	//set output file from input file
-	tokens := strings.Split(filename, ".")
-	if len(tokens) == 1 {
-		//no extensions found
-		return filename + "." + token
-	} else {
-		//output file
-		tokens = append(tokens, tokens[len(tokens)-1]) //add the last token to the end again
-		tokens[len(tokens)-2] = token                  //set the old last token to the sealed token
-		return strings.Join(tokens, ".")
-	}
-
-}
-
 func resolveAndCheckSealArgs(args *app.SealConfigArgs) error {
 	if *args.Output == "" {
-		*args.Output = injectValueBeforeExtension(*args.Input, SEALED_FILE_TOKEN)
+		*args.Output = util.AddValueBeforeExtension(*args.Input, SEALED_FILE_TOKEN)
 	}
 	return nil
 }
@@ -290,7 +275,7 @@ func makeUnsealCmd(context *CmdContext) *cobra.Command {
 
 func resolveAndCheckUnsealArgs(args *app.UnsealConfigArgs) error {
 	if *args.Output == "" {
-		*args.Output = injectValueBeforeExtension(*args.Input, UNSEALED_FILE_TOKEN)
+		*args.Output = util.AddValueBeforeExtension(*args.Input, UNSEALED_FILE_TOKEN)
 	}
 	return nil
 }
