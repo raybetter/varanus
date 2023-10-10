@@ -1,11 +1,6 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
-	"os"
-
 	"varanus/internal/app"
 	"varanus/internal/util"
 
@@ -57,8 +52,8 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			context.App.CheckConfig(&cmdArgs, os.Stdout)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return context.App.CheckConfig(&cmdArgs, cmd.OutOrStdout())
 		},
 	}
 
@@ -135,15 +130,15 @@ func makeSealCmd(context *CmdContext) *cobra.Command {
 	`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			err := resolveAndCheckSealArgs(&cmdArgs)
-			if err != nil {
-				return err
+			//set output from input if not set
+			if *cmdArgs.Output == "" {
+				*cmdArgs.Output = util.AddValueBeforeExtension(*cmdArgs.Input, SEALED_FILE_TOKEN)
 			}
 
 			//once we get through validation, silence the usage
 			cmd.SilenceUsage = true
 
-			err = context.App.SealConfig(&cmdArgs, os.Stdout)
+			err := context.App.SealConfig(&cmdArgs, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -170,13 +165,6 @@ func makeSealCmd(context *CmdContext) *cobra.Command {
 
 	return cmd
 
-}
-
-func resolveAndCheckSealArgs(args *app.SealConfigArgs) error {
-	if *args.Output == "" {
-		*args.Output = util.AddValueBeforeExtension(*args.Input, SEALED_FILE_TOKEN)
-	}
-	return nil
 }
 
 const UNSEALED_FILE_TOKEN = "unsealed"
@@ -234,15 +222,15 @@ func makeUnsealCmd(context *CmdContext) *cobra.Command {
 	`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			err := resolveAndCheckUnsealArgs(&cmdArgs)
-			if err != nil {
-				return err
+			//set the output from the input if not set
+			if *cmdArgs.Output == "" {
+				*cmdArgs.Output = util.AddValueBeforeExtension(*cmdArgs.Input, UNSEALED_FILE_TOKEN)
 			}
 
 			//once we get through validation, silence the usage
 			cmd.SilenceUsage = true
 
-			err = context.App.UnsealConfig(&cmdArgs, os.Stdout)
+			err := context.App.UnsealConfig(&cmdArgs, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -271,11 +259,4 @@ func makeUnsealCmd(context *CmdContext) *cobra.Command {
 
 	return cmd
 
-}
-
-func resolveAndCheckUnsealArgs(args *app.UnsealConfigArgs) error {
-	if *args.Output == "" {
-		*args.Output = util.AddValueBeforeExtension(*args.Input, UNSEALED_FILE_TOKEN)
-	}
-	return nil
 }
