@@ -1,8 +1,11 @@
-mail:
-  monitors:
-    - from: test1
-      to: test2
+monitoring:
+  email_monitors:
+    - from_account: test2
+      to_account: test3
       test_period: 60m
+      notifications:
+        - mail: test1
+mail:
   accounts:
     - name: test1
       smtp:
@@ -16,6 +19,19 @@ mail:
         port: 993
         username: janeuser@example.com
         password: it's a another secret.
+    - name: test2
+      smtp:
+        sender_address: foo@example.com
+        server_address: smtp.example.com
+        port: 465
+        username: foo@example.com
+        password: argyle_socks_is_the_password
+    - name: test2
+      imap:
+        server_address: smtp.example.com
+        port: 993
+        username: bar@example.com
+        password: plaid_socks_is_the_password
   send_limits:
     - min_period: 10m
       account_names:
