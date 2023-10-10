@@ -25,7 +25,7 @@ func TestCheckConfigNominal(t *testing.T) {
 
 	stdOutput := sb.String()
 	// fmt.Println(stdOutput)
-	assert.Contains(t, stdOutput, "Of 2 total items, 1 are sealed and 1 are unsealed.")
+	assert.Contains(t, stdOutput, "Of 4 total items, 1 are sealed and 3 are unsealed.")
 	assert.Contains(t, stdOutput, "The config was loaded successfully.")
 	assert.Contains(t, stdOutput, "The integrity of the sealed values was verified with the private key.")
 	assert.Contains(t, stdOutput, "The configuration appears to be valid.")

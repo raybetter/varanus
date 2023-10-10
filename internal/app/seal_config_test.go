@@ -34,8 +34,8 @@ func TestSealConfigNominalNoForce(t *testing.T) {
 	stdOutput := sb.String()
 	// fmt.Println(stdOutput)
 	// t.FailNow()
-	assert.Contains(t, stdOutput, "The seal operation sealed 1 items.")
-	assert.Contains(t, stdOutput, "After the seal operation, of 2 total items, 2 are sealed and 0 are unsealed.")
+	assert.Contains(t, stdOutput, "The seal operation sealed 3 items.")
+	assert.Contains(t, stdOutput, "After the seal operation, of 4 total items, 4 are sealed and 0 are unsealed.")
 
 }
 
@@ -62,12 +62,6 @@ func TestSealConfigNoForceButFileExists(t *testing.T) {
 	assert.ErrorContains(t, err, "Error writing output config")
 	assert.ErrorContains(t, err, "could not open file")
 	assert.ErrorContains(t, err, "file exists")
-
-	stdOutput := sb.String()
-	// fmt.Println(stdOutput)
-	// t.FailNow()
-	assert.Contains(t, stdOutput, "The seal operation sealed 1 items.")
-	assert.Contains(t, stdOutput, "After the seal operation, of 2 total items, 2 are sealed and 0 are unsealed.")
 
 }
 

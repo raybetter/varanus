@@ -26,7 +26,7 @@ mail:
         port: 465
         username: foo@example.com
         password: argyle_socks_is_the_password
-    - name: test2
+    - name: test3
       imap:
         server_address: smtp.example.com
         port: 993

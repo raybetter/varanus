@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDeepCopy(t *testing.T) {
+func TestApplicationError(t *testing.T) {
 	err := newApplicationError("test error %s %d", "some string", 55)
 	assert.Equal(t, "test error some string 55", err.Error())
 
