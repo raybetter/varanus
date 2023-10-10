@@ -14,55 +14,59 @@ func TestForceFailureNoFailure(t *testing.T) {
 
 	//nothing in this test should fail because the force_failure value doesn't match a defined value
 
-	{
-		inputYaml := `mail:
+	inputYaml := `mail:
   accounts: []
   send_limits: []
+monitoring:
+  email_monitors: []
 force_failure: some value
 `
-		c, err := ReadConfig([]byte(inputYaml))
-		assert.Nil(t, err)
+	c, err := ReadConfig([]byte(inputYaml))
+	assert.Nil(t, err)
 
-		assert.NotNil(t, c.ForceFailure)
-		assert.Equal(t, "some value", c.ForceFailure.Value)
+	assert.NotNil(t, c.ForceFailure)
+	assert.Equal(t, "some value", c.ForceFailure.Value)
 
-		validationResult, err := validation.ValidateObject(c)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, validationResult.GetErrorCount())
+	validationResult, err := validation.ValidateObject(c)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, validationResult.GetErrorCount())
 
-		assert.False(t, c.ForceFailure.IsValueSealed())
-		assert.Equal(t, "force_config_failure_value", c.ForceFailure.GetValue())
+	assert.False(t, c.ForceFailure.IsValueSealed())
+	assert.Equal(t, "force_config_failure_value", c.ForceFailure.GetValue())
 
-		sealResult := secrets.SealObject(c, nil)
-		assert.Equal(t, 1, sealResult.NumberSealed)
-		assert.Len(t, sealResult.SealErrors, 0)
+	sealResult := secrets.SealObject(c, nil)
+	assert.Equal(t, 1, sealResult.NumberSealed)
+	assert.Len(t, sealResult.SealErrors, 0)
 
-		outputYaml, err := c.ToYAML()
-		assert.Nil(t, err)
+	outputYaml, err := c.ToYAML()
+	assert.Nil(t, err)
 
-		assert.Equal(t, inputYaml, outputYaml)
-	}
-	{
-		inputYaml := `mail:
+	assert.Equal(t, inputYaml, outputYaml)
+}
+
+func TestForceFailureSealed(t *testing.T) {
+
+	inputYaml := `mail:
   accounts: []
   send_limits: []
+monitoring:
+  email_monitors: []
 force_failure: is_sealed
 `
-		c, err := ReadConfig([]byte(inputYaml))
-		assert.Nil(t, err)
+	c, err := ReadConfig([]byte(inputYaml))
+	assert.Nil(t, err)
 
-		assert.True(t, c.ForceFailure.IsValueSealed())
-		assert.Equal(t, "sealed(AAAA=)", c.ForceFailure.GetValue())
+	assert.True(t, c.ForceFailure.IsValueSealed())
+	assert.Equal(t, "sealed(AAAA=)", c.ForceFailure.GetValue())
 
-		sealCheckResult := secrets.CheckSealsOnObject(c, nil)
-		assert.Equal(t, 1, sealCheckResult.SealedCount)
-		assert.Equal(t, 0, sealCheckResult.UnsealedCount) //the fcf is unsealed by default
-		assert.Len(t, sealCheckResult.UnsealErrors, 0)
+	sealCheckResult := secrets.CheckSealsOnObject(c, nil)
+	assert.Equal(t, 1, sealCheckResult.SealedCount)
+	assert.Equal(t, 0, sealCheckResult.UnsealedCount)
+	assert.Len(t, sealCheckResult.UnsealErrors, 0)
 
-		unsealResult := secrets.UnsealObject(c, nil)
-		assert.Equal(t, 1, unsealResult.NumberUnsealed)
-		assert.Len(t, unsealResult.UnsealErrors, 0)
-	}
+	unsealResult := secrets.UnsealObject(c, nil)
+	assert.Equal(t, 1, unsealResult.NumberUnsealed)
+	assert.Len(t, unsealResult.UnsealErrors, 0)
 
 }
 
@@ -71,6 +75,8 @@ func TestForceFailureYamlUnmarshal(t *testing.T) {
 	inputYaml := `mail:
   accounts: []
   send_limits: []
+monitoring:
+  email_monitors: []
 force_failure: yaml_unmarshal_fails
 `
 	c, err := ReadConfig([]byte(inputYaml))

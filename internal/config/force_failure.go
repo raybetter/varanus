@@ -65,7 +65,7 @@ func (fcf *ForceConfigFailure) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func (fcf ForceConfigFailure) Validate(vet validation.ValidationErrorTracker) error {
+func (fcf ForceConfigFailure) Validate(vet validation.ValidationErrorTracker, root interface{}) error {
 	fcf.warn()
 
 	if strings.Contains(fcf.Value, FORCE_CONFIG_FAILURE_VALIDATION_FAILURE) {

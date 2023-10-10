@@ -1,9 +1,17 @@
+monitoring:
+  email_monitors:
+    - from_account: test2
+      to_account: test1
+      test_period: 1h0m0s
+      notifications:
+        - mail: test1
+        - mail: test2
 mail:
   accounts:
     - name: test1
       smtp:
-        sender_address: "example@example.com"
-        server_address: "smtp.example.com"
+        sender_address: example@example.com
+        server_address: smtp.example.com
         port: 465
         username: joeuser@example.com
         password: it's a secret
@@ -12,6 +20,13 @@ mail:
         port: 993
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
+    - name: test2
+      smtp:
+        sender_address: example2@example.com
+        server_address: smtp2.example.com
+        port: 4652
+        username: joeuser2@example.com
+        password: it's a secret2
   send_limits:
     - min_period: 10m
       account_names:
