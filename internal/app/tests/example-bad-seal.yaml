@@ -8,10 +8,12 @@ mail:
         username: joeuser@example.com
         password: sealed(AAAAAAAA=)
       imap:
+        recipient_address: example@example.com
         server_address: "imap.example.com"
         port: 993
         username: janeuser@example.com
         password: it's a another secret.
+        mailbox_name: "INBOX"
   send_limits:
     - min_period: 10m
       account_names:
