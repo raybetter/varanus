@@ -56,7 +56,7 @@ func (si SealedItem) checkRawValue() error {
 	} else {
 		//unsealed cannot be empty
 		if len(si.value) == 0 {
-			return fmt.Errorf("SealedItem with an unsealed value should not be empty")
+			return fmt.Errorf("a SealedItem with an unsealed value should not be empty")
 		}
 	}
 	return nil
@@ -99,6 +99,20 @@ func (si *SealedItem) Unseal(unsealer SecretUnsealer) error {
 	si.value = unsealedValue
 	si.isSealed = false
 	return nil
+}
+
+func (si *SealedItem) ReadSecret(unsealer SecretUnsealer) (string, error) {
+	if !si.isSealed {
+		return si.GetValue(), nil
+	}
+	if unsealer == nil {
+		return "", fmt.Errorf("called ReadSecret on a sealed secret with a nil unsealer")
+	}
+	unsealedValue, err := unsealer.UnsealSecret(si.value)
+	if err != nil {
+		return "", fmt.Errorf("failed to unseal secret %w", err)
+	}
+	return unsealedValue, nil
 }
 
 // CheckSeal returns an error if the item is sealed and cannot be unsealed by unsealer.  If the

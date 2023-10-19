@@ -170,7 +170,7 @@ func TestSealedItemUnmarshaling(t *testing.T) {
 
 }
 
-func TestSealedItemSealAndUnseal(t *testing.T) {
+func TestSealAndUnseal(t *testing.T) {
 
 	secretValue := "unsealed value -- it's a secret!"
 
@@ -181,7 +181,14 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 	assert.Equal(t, secretValue, si.GetValue())
 
 	{
-		//check the item with no key
+		//read the unsealed secret with no unsealer
+		readSecret, err := si.ReadSecret(nil)
+		assert.Nil(t, err)
+		assert.Equal(t, secretValue, readSecret)
+	}
+
+	{
+		//check the item with no unsealer
 		err := si.Check(nil)
 		assert.Nil(t, err)
 	}
@@ -205,6 +212,13 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 	}
 
 	{
+		//read the sealed secret with no unsealer
+		readSecret, err := si.ReadSecret(nil)
+		assert.Equal(t, "", readSecret)
+		assert.ErrorContains(t, err, "called ReadSecret on a sealed secret with a nil unsealer")
+	}
+
+	{
 		//check the sealed item with no key
 		err := si.Check(nil)
 		assert.Nil(t, err)
@@ -223,6 +237,13 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 	unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
 
 	{
+		//read the sealed secret with the unsealer
+		readSecret, err := si.ReadSecret(unsealer)
+		assert.Nil(t, err)
+		assert.Equal(t, secretValue, readSecret)
+	}
+
+	{
 		//check the sealed item with the key
 		err := si.Check(unsealer)
 		assert.Nil(t, err)
@@ -234,6 +255,13 @@ func TestSealedItemSealAndUnseal(t *testing.T) {
 
 	assert.False(t, si.IsValueSealed())
 	assert.Equal(t, secretValue, si.GetValue())
+
+	{
+		//read the unsealed secret with an unsealer
+		readSecret, err := si.ReadSecret(unsealer)
+		assert.Nil(t, err)
+		assert.Equal(t, secretValue, readSecret)
+	}
 
 	{
 		//check the item with the key
@@ -283,6 +311,13 @@ func TestSealedItemSealAndUnsealeWithErrors(t *testing.T) {
 	//make an unsealer with a private key
 	unsealer := MakeSecretUnsealer()
 	unsealer.LoadPrivateKeyFromFile(TEST_FILE_PREFIX+PRIVATE_KEY_4096_FILENAME, "")
+
+	{
+		//read the invalid sealed secret with an unsealer
+		readSecret, err := si.ReadSecret(unsealer)
+		assert.Equal(t, "", readSecret)
+		assert.ErrorContains(t, err, "crypto/rsa: decryption error")
+	}
 
 	{
 		//check the sealed item with the key
