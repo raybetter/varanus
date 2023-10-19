@@ -16,10 +16,12 @@ mail:
         username: joeuser@example.com
         password: it's a secret
       imap:
+        recipient_address: example@example.com
         server_address: "imap.example.com"
         port: 993
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
+        mailbox_name: INBOX
     - name: test2
       smtp:
         sender_address: example2@example.com

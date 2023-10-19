@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net/mail"
+
 	"strings"
 	"varanus/internal/secrets"
 	"varanus/internal/util"
@@ -8,13 +10,24 @@ import (
 )
 
 type IMAPConfig struct {
-	ServerAddress string             `yaml:"server_address"`
-	Port          uint               `yaml:"port"`
-	Username      string             `yaml:"username"`
-	Password      secrets.SealedItem `yaml:"password"`
+	RecipientAddress string             `yaml:"recipient_address"`
+	ServerAddress    string             `yaml:"server_address"`
+	Port             uint               `yaml:"port"`
+	UseTLS           bool               `yaml:"use_tls"`
+	Username         string             `yaml:"username"`
+	Password         secrets.SealedItem `yaml:"password"`
+	MailboxName      string             `yaml:"mailbox_name"`
 }
 
 func (c IMAPConfig) Validate(vet validation.ValidationErrorTracker, root interface{}) error {
+
+	_, addressError := mail.ParseAddress(c.RecipientAddress)
+	if addressError != nil {
+		vet.AddValidationError(
+			c,
+			"recipient_address '%s' is not a valid email: %s", c.RecipientAddress, addressError,
+		)
+	}
 
 	c.ServerAddress = strings.TrimSpace(c.ServerAddress)
 	if !util.IsUrlHost(c.ServerAddress) {
@@ -36,6 +49,14 @@ func (c IMAPConfig) Validate(vet validation.ValidationErrorTracker, root interfa
 		vet.AddValidationError(
 			c,
 			"username must not be empty or whitespace",
+		)
+	}
+
+	c.MailboxName = strings.TrimSpace(c.MailboxName)
+	if len(c.MailboxName) == 0 {
+		vet.AddValidationError(
+			c,
+			"mailbox_name must not be empty or whitespace",
 		)
 	}
 

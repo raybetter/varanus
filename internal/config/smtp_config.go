@@ -12,6 +12,7 @@ type SMTPConfig struct {
 	SenderAddress string             `yaml:"sender_address"`
 	ServerAddress string             `yaml:"server_address"`
 	Port          uint               `yaml:"port"`
+	UseTLS        bool               `yaml:"use_tls"`
 	Username      string             `yaml:"username"`
 	Password      secrets.SealedItem `yaml:"password"`
 }

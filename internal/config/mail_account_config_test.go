@@ -52,10 +52,12 @@ func TestMailAccountConfigValidation(t *testing.T) {
 			Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
 		},
 		IMAP: &IMAPConfig{
-			ServerAddress: "mail.example.com",
-			Port:          993,
-			Username:      "joe@example.com",
-			Password:      secrets.CreateSealedItem("sealed(+abcdef==)"),
+			RecipientAddress: "example@example.com",
+			ServerAddress:    "mail.example.com",
+			Port:             993,
+			Username:         "joe@example.com",
+			Password:         secrets.CreateSealedItem("sealed(+abcdef==)"),
+			MailboxName:      "INBOX",
 		},
 	}
 

@@ -60,18 +60,23 @@ func TestEndToEnd(t *testing.T) {
         sender_address: example@example.com
         server_address: smtp.example.com
         port: 465
+        use_tls: false
         username: joeuser@example.com
         password: it's a secret
       imap:
+        recipient_address: example@example.com
         server_address: imap.example.com
         port: 993
+        use_tls: false
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
+        mailbox_name: INBOX
     - name: test2
       smtp:
         sender_address: example2@example.com
         server_address: smtp2.example.com
         port: 4652
+        use_tls: false
         username: joeuser2@example.com
         password: it's a secret2
   send_limits:
@@ -152,13 +157,17 @@ func TestEndToEndWithValidationErrors(t *testing.T) {
         sender_address: example@example.com
         server_address: smtp.example.com
         port: 465
+        use_tls: false
         username: joeuser@example.com
         password: sealed(+aaaaaa==)
       imap:
+        recipient_address: example@example.com
         server_address: imap.example.com
         port: 993
+        use_tls: false
         username: janeuser@example.com
         password: sealed(+bbbbbb==)
+        mailbox_name: INBOX
   send_limits:
     - min_period: 10m0s
       account_names:

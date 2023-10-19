@@ -20,6 +20,11 @@ func TestIMAPConfigValidation(t *testing.T) {
 
 	testCases := []TestCase{
 		{
+			Mutator:         func(c *IMAPConfig) { c.RecipientAddress = "not/a/valid/email" },
+			Error:           "recipient_address 'not/a/valid/email' is not a valid email",
+			ErrorObjectType: IMAPConfig{},
+		},
+		{
 			Mutator:         func(c *IMAPConfig) { c.ServerAddress = "not/a/valid/hostname" },
 			Error:           "server_address 'not/a/valid/hostname' is not a valid hostname",
 			ErrorObjectType: IMAPConfig{},
@@ -51,13 +56,29 @@ func TestIMAPConfigValidation(t *testing.T) {
 			Error:           "value does not match the expected format for an encrypted, encoded string",
 			ErrorObjectType: secrets.CreateSealedItem(""),
 		},
+		{
+			Mutator: func(c *IMAPConfig) {
+				c.MailboxName = ""
+			},
+			Error:           "mailbox_name must not be empty or whitespace",
+			ErrorObjectType: IMAPConfig{},
+		},
+		{
+			Mutator: func(c *IMAPConfig) {
+				c.MailboxName = "   "
+			},
+			Error:           "mailbox_name must not be empty or whitespace",
+			ErrorObjectType: IMAPConfig{},
+		},
 	}
 
 	baseConfig := IMAPConfig{
-		ServerAddress: "mail.example.com",
-		Port:          993,
-		Username:      "joe@example.com",
-		Password:      secrets.CreateSealedItem("+abcdef=="),
+		RecipientAddress: "foo@example.com",
+		ServerAddress:    "mail.example.com",
+		Port:             993,
+		Username:         "joe@example.com",
+		Password:         secrets.CreateSealedItem("+abcdef=="),
+		MailboxName:      "INBOX",
 	}
 
 	{ //nominal case test should have no errors
