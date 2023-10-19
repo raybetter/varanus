@@ -50,16 +50,26 @@ Configuration details
     - dns monitor - check that DNS entry exists
 
 TODOs:
-- make an executable that can seal and unseal YAML config files
-- varanus seal -config <yaml file> -key <public key> [-output <filename>]
-  - output is optional, if omitted, replace the original file
-  - if output is specified, won't overwrite an existing file
-- varanus unseal -config <yaml file> -key <private key> -passphrase <passphrase value>] [-output <filename>]
-  - passphrase is optional, support pass:string, file:filename, and env:var like openssl
-  - output is optional, if omitted, replace the original file
-  - if output is specified, won't overwrite an existing file
-
-- ...
+- implement the monitor module
+  - monitors are instantiated as workers, maybe state machines 
+  - schedule events on a global event queue
+  - make a worker for mail monitoring
+    - sends a message on SMTP
+      - wait to retry if "too soon" from the mail module
+    - waits to check IMAP for the message
+      - configurable wait and retry times
+    - needs options for what the message contains
+    - needs options for moving successful messages to another folder
+    - failures and successes are logged to the reporting system with notification channels
+- reporting system
+  - recieve notice of failures and successes -- Go channels?
+  - log results to database
+  - send out notifications for failures
+  - send out reports at configured intervals
+- database - storage for notification history, probably just sqlite
+- improvements to mail module:
+  - implement sending limits enforcment
+  - implment more sophisticated searches for a message than just matching the subject line
 
 Design decisions:
 
@@ -71,16 +81,14 @@ Design decisions:
       to do anyway
     - the `gopkg.in/yaml.v3` library provides YAML parsing for the config
   - decided against using `github.com/creasty/defaults` setting defaults (e.g. port defaults) -- requiring explicit config for everything is probably better anyway.
-
-Sealed secrets
+- Sealed secrets
   - memguard
     - looked at [memguard](https://github.com/awnumar/memguard), which provides sealed enclaves and
       locked buffers (locked memory pages)
     - The problem is that once you parse the locked buffer to an object, like rsa.PrivateKey, then
       the parse object is not protected.
     - For now, decide to trust the process with the private key loaded from the file
-
-Walker
+- Walker
   - implement a recursive, depth-first walk down an object tree (e.g. walking items in maps and 
     lists and fields of structs).  
   - the walk can be implmented as mutable (expect to modify the needle objects in the callback) or
@@ -94,7 +102,13 @@ Walker
     `interface{}` types.
   - use the walker to streamline the implementation of validation and sealing in the config 
     management.
-    
+- Mail module
+  - takes in the mail config
+  - sends SMTP messages using the SMTP config
+  - checks for IMAP messages using the IMAP config by finding a message with a given subject line
+
+
+
 References:
 
 - crypto

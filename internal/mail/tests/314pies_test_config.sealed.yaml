@@ -1,0 +1,21 @@
+mail:
+  accounts:
+    - name: 314pies_account
+      smtp:
+        sender_address: mailtest2@314pies.com
+        server_address: mail.314pies.com
+        port: 465
+        use_tls: true
+        username: mailtest2@314pies.com
+        password: sealed(Dz0E6fvshxcgXu8Z794caeAKhyZ5QovYSJ6l7YSZALn7mUPU6Rp1B9VMZVney3BvtWr+ACVOBqtPrCtL1s8sfWU81L9GlolBw0AIA6OqGYk5YDXFcmJTcHc4OXYBTBYw7VS7PP9DPdcp3BalfNP/ps0ss6ewy3PgtfVo7DDaXAR5p8/KPgJg4cAbnuILPioDZN8tIB2taSJ31GfMppIM1VyBA18dc43fk1aAvbvChXJS8mdxTHkgCKhY6L4NJUJbvMgzrO6f6qZOYmMy8qmA67lqMZhxCga7Bgnz6kyJuVBj2dwFAu4Ct1OmtVNwzXpuSSxJx+lyChyyVUg7I1HVimvH9I6WuvBRqJX5Yv/n6rVqWdExuzGQtBKv/BFrDYbIZ8M/VlMUed0wPl60a56RgwNqxuZmN7xVytWRbIaKA2F0bZqF99WYMUMQ8mZFDHRLFWOLBJn/RmdswjL9X/Dxm8tgP5+Odi9glW+lUit5b73iytbSiRyLRx7920Xg9KegDQhnoyOjaiw1Au7HsZL8ENcNbS0Qonz9gA9Tx8cAb6qTm2GFFHLElv+ke+75/KmbnbdRgT2P2qViKKDjKmTRx6xKBxoU2cq1BDr6/u8/7O195129MAUhPvPpCh57W7rga9gkL1pzjdYLoWKUQ3qyVq7h8vT7VRZ/GXvsOeflttY=)
+      imap:
+        recipient_address: mailtest2@314pies.com
+        server_address: mail.314pies.com
+        port: 993
+        use_tls: true
+        username: mailtest2@314pies.com
+        password: sealed(OPnJoAjQTkTOkNkoAbYnjRMCey8eDz4fKbemA+1YUt2G7p0oxveQfNZsnM1AmM+/6/gmtCl1ZZSKbjDnGI9fK4ifq1RTrQmIJmgfvd6DlEQYlgbA8Lp35zIpNwoGmRsFwzqmk6iERPYRKSmeku2wjc0huhRmKLDqR9UhNVTm+UooFMSzEET3AQI4ZqwpLe9R7NLIjLRxl7AsM0AfUSVlhh/vL/abcl/fu+bTMEWa9I6pO3TSPfp3F5UfsQ+8abyVFN91m+aanEAzfbCo3LUfmOQFObbDumTKj5y1nwcL79BH0614dnTGEIqRzsFLhBsuDunIsS2O6m3l87KsgsZXWTTysLgseQ+t7OvGq3RcsD99aGFLj9pwqUT4IQpTmTDnWGeDPk1+GJe4a8RutqBL99+jEFNMRXoQd8yJzvH9zqMjHHsCIslHnkj9esiXhZHFknU7Waw+02fFbR+6c6heAT3/6ZI15fxsS9ok7K8YRrEH4SidvMFiX3PLnK96gQlyqMLULJxyxoaiXcqgibLAoBhHkrHntZII7LWpNxaXTfX8W0h88uUGo+wa1uSk5r8Lb3kxgxZA+CE9PDZSKy7q28/k7oPly/bOS2TJriklbhtbeW7LieRneqjJfVo4IgDlXLhe3SXMx+u3NGLf5Bldb+bNLMqOK1lSfjh+Fx0lMOg=)
+        mailbox_name: INBOX
+  send_limits: []
+monitoring:
+  email_monitors: []
