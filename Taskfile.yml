@@ -14,8 +14,10 @@ tasks:
 
   test:
     description: run tests
+    vars:
+      TEST_SCOPE: '{{if eq "" .CLI_ARGS}}./...{{else}}varanus/{{.CLI_ARGS}}{{end}}'
     cmds:
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -v ./...
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go test -v {{.TEST_SCOPE}}
 
   coverage-test:
     description: run tests
