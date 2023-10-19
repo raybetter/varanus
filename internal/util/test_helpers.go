@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // DeepCopyForTesting is an exceedingly lazy but compact way of deep copying the config structs
@@ -46,4 +50,15 @@ func CreateTempFileAndDir(dir string, pattern string) *os.File {
 // https://stackoverflow.com/questions/30716354/how-do-i-do-a-literal-int64-in-go/30716481
 func Ptr[T any](v T) *T {
 	return &v
+}
+
+// Call within a test function so that the test is skipped unless VARANUS_TEST_FULL is set
+func SlowTest(t *testing.T) {
+
+	pc, file, line, ok := runtime.Caller(1)
+	require.True(t, ok)
+
+	if os.Getenv("VARANUS_TEST_FULL") == "" {
+		t.Skipf("Skipping %v at %s:%d because VARANUS_TEST_FULL is not set", runtime.FuncForPC(pc).Name(), file, line)
+	}
 }
